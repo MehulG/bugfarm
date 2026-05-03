@@ -1,0 +1,19 @@
+export const logger = {
+  info(message: string, meta?: unknown): void {
+    if (meta === undefined) {
+      console.info(message);
+      return;
+    }
+
+    console.info(message, meta);
+  },
+
+  error(message: string, meta?: unknown): void {
+    if (meta === undefined) {
+      console.error(message);
+      return;
+    }
+
+    console.error(message, meta);
+  },
+};

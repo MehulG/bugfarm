@@ -1,0 +1,61 @@
+import { apiReference } from "@scalar/express-api-reference";
+import express from "express";
+import { seedBug } from "./bugfarm/seedBug.js";
+import type { SeedBugError, SeedBugRequest } from "./bugfarm/types.js";
+import { openApiDocument } from "./openapi.js";
+import { logger } from "./utils/logger.js";
+
+export function createServer(): express.Express {
+  const app = express();
+
+  app.use(express.json({ limit: "1mb" }));
+
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
+
+  app.get("/openapi.json", (_req, res) => {
+    res.json(openApiDocument);
+  });
+
+  app.use(
+    "/docs",
+    apiReference({
+      content: openApiDocument,
+      pageTitle: "BugFarm API Reference",
+      theme: "default",
+    }),
+  );
+
+  app.post("/seed-bug", async (req, res) => {
+    try {
+      const payload = req.body as SeedBugRequest;
+      const result = await seedBug(payload);
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      const response: SeedBugError = {
+        status: "error",
+        message,
+      };
+
+      logger.error("Failed to seed bug", { message });
+      res.status(statusCodeForError(message)).json(response);
+    }
+  });
+
+  return app;
+}
+
+function statusCodeForError(message: string): number {
+  if (
+    message === "repoPath is required" ||
+    message === "Repo path does not exist" ||
+    message === "Repo path is not a directory" ||
+    message.startsWith("difficulty must be")
+  ) {
+    return 400;
+  }
+
+  return 500;
+}
