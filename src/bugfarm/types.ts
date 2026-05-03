@@ -5,6 +5,8 @@ export type SeedBugRequest = {
   area?: string;
   difficulty?: BugDifficulty;
   language?: string;
+  bugCount?: number;
+  numberOfBugs?: number;
 };
 
 export type SeedBugSuccess = {
@@ -12,6 +14,7 @@ export type SeedBugSuccess = {
   repoPath: string;
   summary: string;
   difficulty: string;
+  bugCount: number;
   filesChanged: string[];
   bugReportPath: string;
 };

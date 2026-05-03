@@ -4,7 +4,7 @@ export const openApiDocument = {
     title: "BugFarm POC API",
     version: "0.1.0",
     description:
-      "HTTP API for seeding one realistic, non-malicious bug into a local Git repository with Cursor SDK.",
+      "HTTP API for seeding realistic, non-malicious bugs into a local Git repository with Cursor SDK.",
   },
   servers: [
     {
@@ -46,7 +46,7 @@ export const openApiDocument = {
         summary: "Seed a bug into a local repository",
         operationId: "seedBug",
         description:
-          "Runs the Cursor SDK against a local Git repository and asks it to introduce exactly one realistic intentional bug plus a BUG_REPORT.md file.",
+          "Runs the Cursor SDK against a local Git repository and asks it to introduce the requested number of realistic intentional bugs plus a BUG_REPORT.md file.",
         requestBody: {
           required: true,
           content: {
@@ -59,6 +59,7 @@ export const openApiDocument = {
                 area: "auth",
                 difficulty: "medium",
                 language: "typescript",
+                bugCount: 1,
               },
             },
           },
@@ -76,6 +77,7 @@ export const openApiDocument = {
                   repoPath: "/absolute/path/to/repo",
                   summary: "Introduced a realistic token expiry edge-case bug",
                   difficulty: "medium",
+                  bugCount: 1,
                   filesChanged: ["src/auth/session.ts", "BUG_REPORT.md"],
                   bugReportPath: "/absolute/path/to/repo/BUG_REPORT.md",
                 },
@@ -142,11 +144,33 @@ export const openApiDocument = {
             description: "Optional prompt hint for the primary language to target.",
             examples: ["typescript"],
           },
+          bugCount: {
+            type: "integer",
+            minimum: 1,
+            maximum: 10,
+            description: "Optional number of distinct bugs to seed. Defaults to 1.",
+            default: 1,
+          },
+          numberOfBugs: {
+            type: "integer",
+            minimum: 1,
+            maximum: 10,
+            deprecated: true,
+            description: "Alias for bugCount.",
+          },
         },
       },
       SeedBugSuccess: {
         type: "object",
-        required: ["status", "repoPath", "summary", "difficulty", "filesChanged", "bugReportPath"],
+        required: [
+          "status",
+          "repoPath",
+          "summary",
+          "difficulty",
+          "bugCount",
+          "filesChanged",
+          "bugReportPath",
+        ],
         properties: {
           status: {
             type: "string",
@@ -160,6 +184,9 @@ export const openApiDocument = {
           },
           difficulty: {
             type: "string",
+          },
+          bugCount: {
+            type: "integer",
           },
           filesChanged: {
             type: "array",

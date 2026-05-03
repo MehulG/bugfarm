@@ -9,12 +9,14 @@ import type { BugDifficulty, SeedBugRequest, SeedBugSuccess } from "./types.js";
 type AgentFinalJson = {
   summary?: string;
   difficulty?: BugDifficulty;
+  bugCount?: number;
   filesChanged?: string[];
   bugReportPath?: string;
 };
 
 export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> {
   const repoPath = await validateRequest(request);
+  const bugCount = getBugCount(request);
   const basePrompt = await loadPrompt();
   const repoScan = await scanRepo(repoPath);
   const prompt = buildPrompt(basePrompt, {
@@ -22,6 +24,7 @@ export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> 
     area: request.area,
     difficulty: request.difficulty,
     language: request.language,
+    bugCount,
     fileTree: repoScan.fileTree,
     sourceContext: repoScan.sourceContext,
   });
@@ -46,8 +49,9 @@ export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> 
   return {
     status: "success",
     repoPath,
-    summary: parsed?.summary || "Seeded a realistic intentional bug",
+    summary: parsed?.summary || `Seeded ${bugCount} realistic intentional bug${bugCount === 1 ? "" : "s"}`,
     difficulty: parsed?.difficulty || request.difficulty || "medium",
+    bugCount: parsed?.bugCount || bugCount,
     filesChanged: filesChanged.length > 0 ? filesChanged : parsed?.filesChanged || [],
     bugReportPath,
   };
@@ -62,7 +66,23 @@ async function validateRequest(request: SeedBugRequest): Promise<string> {
     throw new Error("difficulty must be easy, medium, or hard");
   }
 
+  getBugCount(request);
+
   return verifyRepoPath(request.repoPath);
+}
+
+function getBugCount(request: SeedBugRequest): number {
+  const rawBugCount = request.bugCount ?? request.numberOfBugs ?? 1;
+
+  if (!Number.isInteger(rawBugCount)) {
+    throw new Error("bugCount must be an integer");
+  }
+
+  if (rawBugCount < 1 || rawBugCount > 10) {
+    throw new Error("bugCount must be between 1 and 10");
+  }
+
+  return rawBugCount;
 }
 
 async function loadPrompt(): Promise<string> {
@@ -77,6 +97,7 @@ function buildPrompt(
     area?: string;
     difficulty?: BugDifficulty;
     language?: string;
+    bugCount: number;
     fileTree: string;
     sourceContext: string;
   },
@@ -90,6 +111,7 @@ Requested constraints:
 - Area: ${input.area || "any suitable area"}
 - Difficulty: ${input.difficulty || "medium"}
 - Language: ${input.language || "infer from repository"}
+- Number of bugs: ${input.bugCount}
 
 Repository file tree:
 \`\`\`text
@@ -101,7 +123,7 @@ Selected source context:
 ${input.sourceContext}
 \`\`\`
 
-Use the repository path as your working directory. Apply the minimal code edit directly in that repository, create BUG_REPORT.md at the repository root, and finish with only the requested JSON object.`;
+Use the repository path as your working directory. Apply the minimal code edit directly in that repository, introduce exactly ${input.bugCount} bug${input.bugCount === 1 ? "" : "s"}, create BUG_REPORT.md at the repository root, and finish with only the requested JSON object.`;
 }
 
 function parseAgentFinalJson(output: string): AgentFinalJson | undefined {

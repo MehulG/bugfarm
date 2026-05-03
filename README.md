@@ -84,11 +84,12 @@ Request:
   "repoPath": "/absolute/path/to/repo",
   "area": "auth",
   "difficulty": "medium",
-  "language": "typescript"
+  "language": "typescript",
+  "bugCount": 1
 }
 ```
 
-Only `repoPath` is required.
+Only `repoPath` is required. `bugCount` is optional, defaults to `1`, and must be an integer from `1` to `10`.
 
 Example:
 
@@ -99,7 +100,8 @@ curl -X POST http://localhost:3000/seed-bug \
     "repoPath": "/absolute/path/to/sample-repo",
     "area": "auth",
     "difficulty": "medium",
-    "language": "typescript"
+    "language": "typescript",
+    "bugCount": 1
   }'
 ```
 
@@ -111,6 +113,7 @@ Success response:
   "repoPath": "/absolute/path/to/repo",
   "summary": "Seeded a realistic intentional bug",
   "difficulty": "medium",
+  "bugCount": 1,
   "filesChanged": ["src/auth/session.ts", "BUG_REPORT.md"],
   "bugReportPath": "/absolute/path/to/repo/BUG_REPORT.md"
 }
@@ -138,5 +141,5 @@ Error response:
 ## Notes
 
 - BugFarm intentionally edits the target repository. Use a disposable branch or sample repo when testing.
-- The prompt instructs Cursor to introduce exactly one realistic bug and to avoid malicious, destructive, or hidden behavior.
+- The prompt instructs Cursor to introduce the requested number of realistic bugs and to avoid malicious, destructive, or hidden behavior.
 - Supported source extensions for scan context are `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.go`, `.rs`, `.java`, and `.sol`.
