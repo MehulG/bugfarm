@@ -52,6 +52,7 @@ function statusCodeForError(message: string): number {
     message === "repoPath is required" ||
     message === "Repo path does not exist" ||
     message === "Repo path is not a directory" ||
+    message === "Repo path does not exist or is not a supported GitHub repo path" ||
     message.startsWith("difficulty must be") ||
     message.startsWith("bugCount must be")
   ) {

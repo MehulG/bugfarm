@@ -3,7 +3,8 @@ import path from "node:path";
 import { config } from "../config.js";
 import { runCursorAgent } from "../cursor/client.js";
 import { getChangedFiles } from "./git.js";
-import { scanRepo, verifyRepoPath } from "./repoScanner.js";
+import { resolveRepoTarget } from "./repoTarget.js";
+import { scanRepo } from "./repoScanner.js";
 import type { BugDifficulty, SeedBugRequest, SeedBugSuccess } from "./types.js";
 
 type AgentFinalJson = {
@@ -15,12 +16,15 @@ type AgentFinalJson = {
 };
 
 export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> {
-  const repoPath = await validateRequest(request);
+  await validateRequest(request);
+  const repoTarget = await resolveRepoTarget(request.repoPath);
   const bugCount = getBugCount(request);
   const basePrompt = await loadPrompt();
-  const repoScan = await scanRepo(repoPath);
+  const repoScan = await scanRepo(repoTarget.repoPath);
   const prompt = buildPrompt(basePrompt, {
-    repoPath,
+    requestedRepoPath: repoTarget.requestedRepoPath,
+    repoPath: repoTarget.repoPath,
+    repoSource: repoTarget.repoSource,
     area: request.area,
     difficulty: request.difficulty,
     language: request.language,
@@ -30,13 +34,13 @@ export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> 
   });
 
   const agentOutput = await runCursorAgent({
-    repoPath,
+    repoPath: repoTarget.repoPath,
     prompt,
     model: config.modelName,
   });
 
-  const filesChanged = await getChangedFiles(repoPath);
-  const bugReportPath = path.join(repoPath, "BUG_REPORT.md");
+  const filesChanged = await getChangedFiles(repoTarget.repoPath);
+  const bugReportPath = path.join(repoTarget.repoPath, "BUG_REPORT.md");
 
   try {
     await access(bugReportPath);
@@ -48,7 +52,9 @@ export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> 
 
   return {
     status: "success",
-    repoPath,
+    requestedRepoPath: repoTarget.requestedRepoPath,
+    repoPath: repoTarget.repoPath,
+    repoSource: repoTarget.repoSource,
     summary: parsed?.summary || `Seeded ${bugCount} realistic intentional bug${bugCount === 1 ? "" : "s"}`,
     difficulty: parsed?.difficulty || request.difficulty || "medium",
     bugCount: parsed?.bugCount || bugCount,
@@ -57,7 +63,7 @@ export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> 
   };
 }
 
-async function validateRequest(request: SeedBugRequest): Promise<string> {
+async function validateRequest(request: SeedBugRequest): Promise<void> {
   if (!request || typeof request.repoPath !== "string" || request.repoPath.trim() === "") {
     throw new Error("repoPath is required");
   }
@@ -67,8 +73,6 @@ async function validateRequest(request: SeedBugRequest): Promise<string> {
   }
 
   getBugCount(request);
-
-  return verifyRepoPath(request.repoPath);
 }
 
 function getBugCount(request: SeedBugRequest): number {
@@ -93,7 +97,9 @@ async function loadPrompt(): Promise<string> {
 function buildPrompt(
   basePrompt: string,
   input: {
+    requestedRepoPath: string;
     repoPath: string;
+    repoSource: "local" | "github";
     area?: string;
     difficulty?: BugDifficulty;
     language?: string;
@@ -106,6 +112,12 @@ function buildPrompt(
 
 Repository path:
 ${input.repoPath}
+
+Requested repository input:
+${input.requestedRepoPath}
+
+Repository source:
+${input.repoSource}
 
 Requested constraints:
 - Area: ${input.area || "any suitable area"}

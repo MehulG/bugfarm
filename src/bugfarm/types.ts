@@ -11,7 +11,9 @@ export type SeedBugRequest = {
 
 export type SeedBugSuccess = {
   status: "success";
+  requestedRepoPath: string;
   repoPath: string;
+  repoSource: "local" | "github";
   summary: string;
   difficulty: string;
   bugCount: number;

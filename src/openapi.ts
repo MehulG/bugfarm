@@ -4,7 +4,7 @@ export const openApiDocument = {
     title: "BugFarm POC API",
     version: "0.1.0",
     description:
-      "HTTP API for seeding realistic, non-malicious bugs into a local Git repository with Cursor SDK.",
+      "HTTP API for seeding realistic, non-malicious bugs into a local or GitHub repository with Cursor SDK.",
   },
   servers: [
     {
@@ -43,10 +43,10 @@ export const openApiDocument = {
     },
     "/seed-bug": {
       post: {
-        summary: "Seed a bug into a local repository",
+        summary: "Seed a bug into a repository",
         operationId: "seedBug",
         description:
-          "Runs the Cursor SDK against a local Git repository and asks it to introduce the requested number of realistic intentional bugs plus a BUG_REPORT.md file.",
+          "Runs the Cursor SDK against a local Git repository or a temporary clone of a GitHub repository, then asks it to introduce the requested number of realistic intentional bugs plus a BUG_REPORT.md file.",
         requestBody: {
           required: true,
           content: {
@@ -55,7 +55,7 @@ export const openApiDocument = {
                 $ref: "#/components/schemas/SeedBugRequest",
               },
               example: {
-                repoPath: "/absolute/path/to/sample-repo",
+                repoPath: "octocat/Hello-World",
                 area: "auth",
                 difficulty: "medium",
                 language: "typescript",
@@ -74,7 +74,9 @@ export const openApiDocument = {
                 },
                 example: {
                   status: "success",
-                  repoPath: "/absolute/path/to/repo",
+                  requestedRepoPath: "octocat/Hello-World",
+                  repoPath: "/tmp/bugfarm-abcd12/octocat-Hello-World",
+                  repoSource: "github",
                   summary: "Introduced a realistic token expiry edge-case bug",
                   difficulty: "medium",
                   bugCount: 1,
@@ -124,8 +126,14 @@ export const openApiDocument = {
         properties: {
           repoPath: {
             type: "string",
-            description: "Absolute path to the local repository to mutate.",
-            examples: ["/absolute/path/to/repo"],
+            description:
+              "Absolute local repo path, GitHub HTTPS URL, GitHub SSH URL, github.com/owner/repo path, or owner/repo shorthand. GitHub repos are cloned into a temporary local working directory.",
+            examples: [
+              "/absolute/path/to/repo",
+              "https://github.com/owner/repo",
+              "git@github.com:owner/repo.git",
+              "owner/repo",
+            ],
           },
           area: {
             type: "string",
@@ -164,7 +172,9 @@ export const openApiDocument = {
         type: "object",
         required: [
           "status",
+          "requestedRepoPath",
           "repoPath",
+          "repoSource",
           "summary",
           "difficulty",
           "bugCount",
@@ -176,8 +186,17 @@ export const openApiDocument = {
             type: "string",
             const: "success",
           },
+          requestedRepoPath: {
+            type: "string",
+          },
           repoPath: {
             type: "string",
+            description:
+              "Local working path that Cursor modified. For GitHub inputs this is the temporary clone path.",
+          },
+          repoSource: {
+            type: "string",
+            enum: ["local", "github"],
           },
           summary: {
             type: "string",

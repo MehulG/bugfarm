@@ -11,6 +11,7 @@ Rules:
 - The project should still compile if possible.
 - Prefer realistic logic bugs, validation bugs, edge-case bugs, state bugs, race-condition-like bugs, or off-by-one bugs.
 - Keep the change minimal.
+- Match the requested difficulty to how hard the bug should be for users to debug with AI coding assistants like Cursor.
 - If more than one bug is requested, each bug should be distinct and documented separately.
 - Create a BUG_REPORT.md file at repo root.
 

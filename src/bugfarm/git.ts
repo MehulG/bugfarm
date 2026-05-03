@@ -3,6 +3,15 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+export async function cloneRepo(input: {
+  cloneUrl: string;
+  destinationPath: string;
+}): Promise<void> {
+  await execFileAsync("git", ["clone", "--depth", "1", input.cloneUrl, input.destinationPath], {
+    maxBuffer: 1024 * 1024,
+  });
+}
+
 export async function getChangedFiles(repoPath: string): Promise<string[]> {
   try {
     const [diffResult, untrackedResult] = await Promise.all([
