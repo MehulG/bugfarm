@@ -12,6 +12,7 @@ export type AppConfig = {
   databasePath: string;
   publicBackendUrl: string;
   coderUrl?: string;
+  coderApiUrl?: string;
   coderApiToken?: string;
   coderOrganizationId?: string;
   coderTemplateId?: string;
@@ -38,6 +39,7 @@ export const config: AppConfig = {
   databasePath: process.env.DATABASE_PATH || "./bugfarm.sqlite",
   publicBackendUrl: process.env.PUBLIC_BACKEND_URL || `http://localhost:${numberFromEnv("PORT", 3000)}`,
   coderUrl: process.env.CODER_URL,
+  coderApiUrl: process.env.CODER_API_URL || process.env.CODER_URL,
   coderApiToken: process.env.CODER_API_TOKEN,
   coderOrganizationId: process.env.CODER_ORGANIZATION_ID,
   coderTemplateId: process.env.CODER_TEMPLATE_ID,

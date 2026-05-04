@@ -11,7 +11,8 @@ export type CoderWorkspace = {
 };
 
 export type CoderClientConfig = {
-  url: string;
+  publicUrl: string;
+  apiUrl: string;
   apiToken: string;
   organizationId: string;
   templateId: string;
@@ -102,7 +103,7 @@ export class CoderClient {
   }
 
   workspaceUrl(username: string, workspaceName: string): string {
-    return `${this.clientConfig.url.replace(/\/+$/, "")}/@${encodeURIComponent(username)}/${encodeURIComponent(workspaceName)}`;
+    return `${this.clientConfig.publicUrl.replace(/\/+$/, "")}/@${encodeURIComponent(username)}/${encodeURIComponent(workspaceName)}`;
   }
 
   private async request<T = unknown>(
@@ -113,19 +114,27 @@ export class CoderClient {
       expectJson?: boolean;
     },
   ): Promise<T> {
-    const response = await fetch(`${this.clientConfig.url.replace(/\/+$/, "")}${path}`, {
-      method: options.method,
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Coder-Session-Token": this.clientConfig.apiToken,
-      },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
+    const url = `${this.clientConfig.apiUrl.replace(/\/+$/, "")}${path}`;
+    let response: Response;
+
+    try {
+      response = await fetch(url, {
+        method: options.method,
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "Coder-Session-Token": this.clientConfig.apiToken,
+        },
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      });
+    } catch (error) {
+      const cause = error instanceof Error ? error.message : "unknown network error";
+      throw new Error(`Coder API ${options.method} ${url} failed before response: ${cause}`);
+    }
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Coder API ${options.method} ${path} failed with ${response.status}: ${text}`);
+      throw new Error(`Coder API ${options.method} ${url} failed with ${response.status}: ${text}`);
     }
 
     if (options.expectJson === false || response.status === 204) {
@@ -139,6 +148,7 @@ export class CoderClient {
 export function requireCoderConfig(): CoderClientConfig {
   const missing = [
     ["CODER_URL", config.coderUrl],
+    ["CODER_API_URL", config.coderApiUrl],
     ["CODER_API_TOKEN", config.coderApiToken],
     ["CODER_ORGANIZATION_ID", config.coderOrganizationId],
     ["CODER_TEMPLATE_ID", config.coderTemplateId],
@@ -151,7 +161,8 @@ export function requireCoderConfig(): CoderClientConfig {
   }
 
   return {
-    url: config.coderUrl!,
+    publicUrl: config.coderUrl!,
+    apiUrl: config.coderApiUrl!,
     apiToken: config.coderApiToken!,
     organizationId: config.coderOrganizationId!,
     templateId: config.coderTemplateId!,

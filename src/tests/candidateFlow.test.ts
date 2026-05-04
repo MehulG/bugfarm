@@ -72,7 +72,8 @@ test("Coder client sends user and workspace creation request shapes", async () =
 
   try {
     const client = new CoderClient({
-      url: "https://coder.example.com",
+      publicUrl: "https://coder-public.example.com",
+      apiUrl: "https://coder-api.example.com",
       apiToken: "coder-token",
       organizationId: "org-id",
       templateId: "template-id",
@@ -96,7 +97,7 @@ test("Coder client sends user and workspace creation request shapes", async () =
     globalThis.fetch = originalFetch;
   }
 
-  assert.equal(calls[0].url, "https://coder.example.com/api/v2/users");
+  assert.equal(calls[0].url, "https://coder-api.example.com/api/v2/users");
   assert.deepEqual(calls[0].body, {
     username: "candidate-abc",
     email: "candidate-abc@bugfarm.local",
@@ -108,7 +109,7 @@ test("Coder client sends user and workspace creation request shapes", async () =
     service_account: false,
     user_status: "active",
   });
-  assert.equal(calls[1].url, "https://coder.example.com/api/v2/users/candidate-abc/workspaces");
+  assert.equal(calls[1].url, "https://coder-api.example.com/api/v2/users/candidate-abc/workspaces");
   assert.deepEqual(calls[1].body, {
     name: "assess-abc",
     template_id: "template-id",

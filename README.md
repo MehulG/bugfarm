@@ -33,6 +33,7 @@ ASSESSMENT_OUTPUT_DIR=./artifacts
 DATABASE_PATH=./bugfarm.sqlite
 PUBLIC_BACKEND_URL=http://localhost:3000
 CODER_URL=https://coder.yourdomain.com
+CODER_API_URL=https://coder.yourdomain.com
 CODER_API_TOKEN=your_coder_api_token_here
 CODER_ORGANIZATION_ID=your_coder_organization_id_here
 CODER_TEMPLATE_ID=your_coder_template_id_here
@@ -209,6 +210,10 @@ This endpoint is asynchronous. It creates a local assessment artifact under `ASS
 On success, BugFarm also creates a pending candidate launch session and returns
 `candidateLaunchUrl`. Opening that secret URL provisions a Coder user and
 workspace for the candidate.
+
+`CODER_URL` is the browser-facing Coder URL shown to candidates. `CODER_API_URL`
+is the backend-to-Coder URL used from inside Docker; when Coder runs on the same
+VM as the backend container, set it to `http://host.docker.internal:7080`.
 
 ### Generate Bug
 

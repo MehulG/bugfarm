@@ -13,6 +13,8 @@ services:
       DATABASE_PATH: /var/lib/bugfarm/bugfarm.sqlite
     ports:
       - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - bugfarm-data:/var/lib/bugfarm
 
