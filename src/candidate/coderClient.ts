@@ -10,6 +10,11 @@ export type CoderWorkspace = {
   name: string;
 };
 
+export type CoderWorkspaceReadiness = {
+  status: "starting" | "ready" | "failed";
+  message?: string;
+};
+
 export type CoderClientConfig = {
   publicUrl: string;
   apiUrl: string;
@@ -106,6 +111,40 @@ export class CoderClient {
     return `${this.clientConfig.publicUrl.replace(/\/+$/, "")}/@${encodeURIComponent(username)}/${encodeURIComponent(workspaceName)}`;
   }
 
+  codeServerUrl(username: string, workspaceName: string): string {
+    return `${this.workspaceUrl(username, `${workspaceName}.main`)}/apps/code-server/`;
+  }
+
+  async getWorkspaceReadiness(workspaceId: string): Promise<CoderWorkspaceReadiness> {
+    const workspace = await this.request<CoderWorkspaceResponse>(
+      `/api/v2/workspaces/${encodeURIComponent(workspaceId)}`,
+      {
+        method: "GET",
+      },
+    );
+    const buildStatus = workspace.latest_build?.status || workspace.status;
+
+    if (buildStatus && ["failed", "canceled", "canceling", "deleted", "deleting", "timeout"].includes(buildStatus)) {
+      const message = workspace.latest_build?.job?.error || `Coder workspace status is ${buildStatus}`;
+      return {
+        status: "failed",
+        message,
+      };
+    }
+
+    const app = findCodeServerApp(workspace);
+    if (app?.health === "healthy") {
+      return {
+        status: "ready",
+      };
+    }
+
+    return {
+      status: "starting",
+      message: app?.health ? `code-server is ${app.health}` : `Coder workspace status is ${buildStatus || "starting"}`,
+    };
+  }
+
   private async request<T = unknown>(
     path: string,
     options: {
@@ -143,6 +182,39 @@ export class CoderClient {
 
     return (await response.json()) as T;
   }
+}
+
+type CoderWorkspaceResponse = {
+  status?: string;
+  latest_build?: {
+    status?: string;
+    job?: {
+      error?: string;
+    };
+    resources?: Array<{
+      agents?: Array<{
+        apps?: Array<{
+          slug?: string;
+          display_name?: string;
+          health?: string;
+        }>;
+      }>;
+    }>;
+  };
+};
+
+function findCodeServerApp(workspace: CoderWorkspaceResponse): { health?: string } | undefined {
+  for (const resource of workspace.latest_build?.resources ?? []) {
+    for (const agent of resource.agents ?? []) {
+      for (const app of agent.apps ?? []) {
+        if (app.slug === "code-server" || app.display_name === "code-server") {
+          return app;
+        }
+      }
+    }
+  }
+
+  return undefined;
 }
 
 export function requireCoderConfig(): CoderClientConfig {

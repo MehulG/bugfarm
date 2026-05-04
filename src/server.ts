@@ -18,6 +18,7 @@ import { logger } from "./utils/logger.js";
 import {
   handleArtifactDownload,
   handleCandidateLaunch,
+  handleCandidateLaunchStatus,
   handleCandidatePasswordReset,
 } from "./candidate/flow.js";
 
@@ -51,6 +52,16 @@ export function createServer(): express.Express {
       const message = error instanceof Error ? error.message : "Unknown candidate launch error";
       logger.error("Failed to launch candidate workspace", { message });
       res.status(500).json({ status: "error", message });
+    }
+  });
+
+  app.get("/candidate/launch/:launchToken/status", async (req, res) => {
+    try {
+      await handleCandidateLaunchStatus(req, res);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown candidate launch status error";
+      logger.error("Failed to check candidate workspace status", { message });
+      res.status(500).json({ status: "failed", message });
     }
   });
 

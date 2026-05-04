@@ -8,7 +8,7 @@ import { CoderClient } from "../candidate/coderClient.js";
 import { createCandidateRepoZip } from "../candidate/artifactZip.js";
 import { CandidateSessionStore } from "../candidate/store.js";
 import { hashToken, tokenMatches } from "../candidate/tokens.js";
-import { handleCandidateLaunch } from "../candidate/flow.js";
+import { handleCandidateLaunchStatus } from "../candidate/flow.js";
 
 test("token hashing validates matching tokens only", () => {
   const hash = hashToken("secret-token");
@@ -131,7 +131,7 @@ test("candidate launch is idempotent after workspace provisioning", async () => 
   });
   const coder = new FakeCoder();
 
-  await handleCandidateLaunch(
+  await handleCandidateLaunchStatus(
     mockRequest(created.launchToken),
     mockResponse(),
     {
@@ -139,7 +139,7 @@ test("candidate launch is idempotent after workspace provisioning", async () => 
       coder,
     },
   );
-  await handleCandidateLaunch(
+  await handleCandidateLaunchStatus(
     mockRequest(created.launchToken),
     mockResponse(),
     {
@@ -213,6 +213,16 @@ class FakeCoder {
 
   workspaceUrl(username: string, workspaceName: string): string {
     return `https://coder.example.com/@${username}/${workspaceName}`;
+  }
+
+  codeServerUrl(username: string, workspaceName: string): string {
+    return `https://coder.example.com/@${username}/${workspaceName}.main/apps/code-server/`;
+  }
+
+  async getWorkspaceReadiness() {
+    return {
+      status: "ready" as const,
+    };
   }
 }
 

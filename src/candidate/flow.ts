@@ -14,7 +14,12 @@ export type CandidateLaunchResult = {
 
 export type CandidateCoder = Pick<
   CoderClient,
-  "createUser" | "createWorkspace" | "updateUserPassword" | "workspaceUrl"
+  | "createUser"
+  | "createWorkspace"
+  | "updateUserPassword"
+  | "workspaceUrl"
+  | "codeServerUrl"
+  | "getWorkspaceReadiness"
 >;
 
 export async function createCandidateLaunchForAssessment(input: {
@@ -55,21 +60,85 @@ export async function handleCandidateLaunch(
   }
 
   if (record.status === "provisioned" && record.coderUsername && record.coderWorkspaceName) {
-    const coder = options.coder ?? new CoderClient();
-    res.send(
-      renderLaunchPage({
-        title: "Assessment workspace",
-        record,
-        workspaceUrl: coder.workspaceUrl(record.coderUsername, record.coderWorkspaceName),
-        launchToken,
-      }),
-    );
+    res.send(renderLaunchLoaderPage({ launchToken }));
     return;
   }
 
-  const coder = options.coder ?? new CoderClient();
-  const coderUsername = store.makeCoderUsername(record.sessionId);
-  const coderWorkspaceName = store.makeWorkspaceName(record.sessionId);
+  res.send(renderLaunchLoaderPage({ launchToken }));
+}
+
+export async function handleCandidateLaunchStatus(
+  req: Request,
+  res: Response,
+  options: {
+    store?: CandidateSessionStore;
+    coder?: CandidateCoder;
+  } = {},
+): Promise<void> {
+  const store = options.store ?? candidateSessionStore;
+  const launchToken = req.params.launchToken;
+  const record = await store.findByLaunchToken(launchToken);
+
+  if (!record) {
+    res.status(404).json({ status: "failed", message: "This assessment link was not found." });
+    return;
+  }
+
+  if (isExpired(record)) {
+    res.status(410).json({ status: "failed", message: "This assessment link has expired." });
+    return;
+  }
+
+  const provisioned = await ensureCandidateWorkspace({
+    record,
+    store,
+    coder: options.coder,
+  });
+  const readiness = await provisioned.coder.getWorkspaceReadiness(provisioned.record.coderWorkspaceId!);
+  const codeServerUrl = provisioned.coder.codeServerUrl(
+    provisioned.record.coderUsername!,
+    provisioned.record.coderWorkspaceName!,
+  );
+
+  res.json({
+    status: readiness.status,
+    message: readiness.message,
+    coderUsername: provisioned.record.coderUsername,
+    coderEmail: `${provisioned.record.coderUsername}@bugfarm.local`,
+    coderPassword: provisioned.coderPassword,
+    workspaceUrl: provisioned.coder.workspaceUrl(
+      provisioned.record.coderUsername!,
+      provisioned.record.coderWorkspaceName!,
+    ),
+    codeServerUrl,
+  });
+}
+
+async function ensureCandidateWorkspace(input: {
+  record: CandidateSessionRecord;
+  store: CandidateSessionStore;
+  coder?: CandidateCoder;
+}): Promise<{
+  record: CandidateSessionRecord;
+  coder: CandidateCoder;
+  coderPassword?: string;
+}> {
+  if (
+    input.record.status === "provisioned" &&
+    input.record.coderUsername &&
+    input.record.coderWorkspaceName &&
+    input.record.coderWorkspaceId
+  ) {
+    return {
+      record: input.record,
+      coder: input.coder ?? new CoderClient(),
+    };
+  }
+
+  const store = input.store;
+  const coder = input.coder ?? new CoderClient();
+  const coderUsername = store.makeCoderUsername(input.record.sessionId);
+  const coderWorkspaceName = store.makeWorkspaceName(input.record.sessionId);
   const coderPassword = createSecretToken(18);
   const artifactToken = createSecretToken(32);
 
@@ -83,13 +152,13 @@ export async function handleCandidateLaunch(
     const workspace = await coder.createWorkspace({
       username: coderUsername,
       workspaceName: coderWorkspaceName,
-      artifactHash: record.artifactHash,
-      sessionId: record.sessionId,
+      artifactHash: input.record.artifactHash,
+      sessionId: input.record.sessionId,
       artifactToken,
     });
 
     await store.markProvisioned({
-      sessionId: record.sessionId,
+      sessionId: input.record.sessionId,
       artifactTokenHash: hashToken(artifactToken),
       coderUserId: user.id,
       coderUsername: user.username,
@@ -97,26 +166,23 @@ export async function handleCandidateLaunch(
       coderWorkspaceName: workspace.name,
     });
 
-    res.send(
-      renderLaunchPage({
-        title: "Assessment workspace created",
-        record: {
-          ...record,
-          status: "provisioned",
-          coderUserId: user.id,
-          coderUsername: user.username,
-          coderWorkspaceId: workspace.id,
-          coderWorkspaceName: workspace.name,
-        },
-        workspaceUrl: coder.workspaceUrl(user.username, workspace.name),
-        coderPassword,
-        launchToken,
-      }),
-    );
+    return {
+      record: {
+        ...input.record,
+        status: "provisioned",
+        artifactTokenHash: hashToken(artifactToken),
+        coderUserId: user.id,
+        coderUsername: user.username,
+        coderWorkspaceId: workspace.id,
+        coderWorkspaceName: workspace.name,
+      },
+      coder,
+      coderPassword,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown Coder provisioning error";
-    await store.markFailed(record.sessionId, message);
-    res.status(500).send(renderMessagePage("Workspace provisioning failed", message));
+    await store.markFailed(input.record.sessionId, message);
+    throw error;
   }
 }
 
@@ -262,6 +328,84 @@ function renderLaunchPage(input: {
   );
 }
 
+function renderLaunchLoaderPage(input: { launchToken: string }): string {
+  const statusUrl = `/candidate/launch/${escapeHtml(input.launchToken)}/status`;
+
+  return renderPage(
+    "Starting assessment workspace",
+    `
+      <main>
+        <div class="spinner" aria-hidden="true"></div>
+        <h1>Starting assessment workspace</h1>
+        <p id="status-message">Creating your Coder workspace...</p>
+        <section id="credentials" class="credentials" hidden>
+          <p>If Coder asks you to sign in, use these credentials:</p>
+          <dl>
+            <dt>Email</dt>
+            <dd><code id="coder-email"></code></dd>
+            <dt>Password</dt>
+            <dd><code id="coder-password"></code></dd>
+          </dl>
+        </section>
+        <p id="manual-open" hidden><a class="button" id="code-server-link" href="#">Open code-server</a></p>
+      </main>
+      <script>
+        const statusMessage = document.getElementById("status-message");
+        const credentials = document.getElementById("credentials");
+        const coderEmail = document.getElementById("coder-email");
+        const coderPassword = document.getElementById("coder-password");
+        const manualOpen = document.getElementById("manual-open");
+        const codeServerLink = document.getElementById("code-server-link");
+        let redirectScheduled = false;
+
+        async function poll() {
+          try {
+            const response = await fetch("${statusUrl}", {
+              headers: { "Accept": "application/json" },
+            });
+            const body = await response.json();
+
+            if (!response.ok || body.status === "failed") {
+              statusMessage.textContent = body.message || "Workspace provisioning failed.";
+              return;
+            }
+
+            if (body.coderEmail && body.coderPassword) {
+              credentials.hidden = false;
+              coderEmail.textContent = body.coderEmail;
+              coderPassword.textContent = body.coderPassword;
+            }
+
+            if (body.codeServerUrl) {
+              codeServerLink.href = body.codeServerUrl;
+              manualOpen.hidden = false;
+            }
+
+            if (body.status === "ready" && body.codeServerUrl) {
+              statusMessage.textContent = "Workspace is ready. Opening code-server...";
+              if (!redirectScheduled) {
+                redirectScheduled = true;
+                setTimeout(() => {
+                  window.location.href = body.codeServerUrl;
+                }, body.coderPassword ? 6000 : 250);
+              }
+              return;
+            }
+
+            statusMessage.textContent = body.message || "Workspace is starting...";
+            setTimeout(poll, 3000);
+          } catch (error) {
+            statusMessage.textContent = "Waiting for the workspace...";
+            setTimeout(poll, 3000);
+          }
+        }
+
+        poll();
+      </script>
+    `,
+  );
+}
+
 function renderMessagePage(title: string, message: string): string {
   return renderPage(
     title,
@@ -286,6 +430,7 @@ function renderPage(title: string, body: string): string {
     main { max-width: 720px; margin: 8vh auto; padding: 32px; }
     h1 { font-size: 28px; margin: 0 0 16px; }
     p { color: #d1d5db; line-height: 1.5; }
+    section { margin: 24px 0; }
     dl { display: grid; grid-template-columns: 120px 1fr; gap: 12px; margin: 24px 0; }
     dt { color: #9ca3af; }
     dd { margin: 0; }
@@ -293,6 +438,9 @@ function renderPage(title: string, body: string): string {
     .button { display: inline-block; background: #2563eb; color: white; padding: 10px 14px; border-radius: 6px; text-decoration: none; }
     button.secondary { background: #1f2937; color: #f9fafb; border: 1px solid #374151; border-radius: 6px; padding: 10px 14px; }
     .note { font-size: 14px; color: #9ca3af; }
+    .credentials { border: 1px solid #374151; border-radius: 8px; padding: 16px; background: #0f172a; }
+    .spinner { width: 32px; height: 32px; border: 3px solid #374151; border-top-color: #60a5fa; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
