@@ -29,6 +29,7 @@ export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> 
     difficulty: request.difficulty,
     language: request.language,
     bugCount,
+    bugDiversification: request.bugDiversification ?? true,
     fileTree: repoScan.fileTree,
     sourceContext: repoScan.sourceContext,
   });
@@ -72,6 +73,13 @@ export async function validateSeedBugRequest(request: SeedBugRequest): Promise<v
     throw new Error("difficulty must be easy, medium, or hard");
   }
 
+  if (
+    request.bugDiversification !== undefined &&
+    typeof request.bugDiversification !== "boolean"
+  ) {
+    throw new Error("bugDiversification must be a boolean");
+  }
+
   getBugCount(request);
 }
 
@@ -104,6 +112,7 @@ function buildPrompt(
     difficulty?: BugDifficulty;
     language?: string;
     bugCount: number;
+    bugDiversification: boolean;
     fileTree: string;
     sourceContext: string;
   },
@@ -124,6 +133,7 @@ Requested constraints:
 - Difficulty: ${input.difficulty || "medium"}
 - Language: ${input.language || "infer from repository"}
 - Number of bugs: ${input.bugCount}
+- Diversify bugs when multiple bugs are requested: ${input.bugDiversification ? "yes" : "no"}
 
 Repository file tree:
 \`\`\`text
@@ -134,6 +144,10 @@ Selected source context:
 \`\`\`text
 ${input.sourceContext}
 \`\`\`
+
+Bug diversification requirements:
+- If diversification is enabled and more than one bug is requested, prefer materially different bug categories, modules, and failure modes rather than repeating the same pattern.
+- If diversification is disabled, you may keep bugs concentrated in one theme or bug family when that better fits the repository.
 
 Use the repository path as your working directory. Apply the minimal code edit directly in that repository, introduce exactly ${input.bugCount} bug${input.bugCount === 1 ? "" : "s"}, create BUG_REPORT.md at the repository root, and finish with only the requested JSON object.`;
 }

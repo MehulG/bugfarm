@@ -89,13 +89,16 @@ Request:
   "area": "auth",
   "difficulty": "medium",
   "language": "typescript",
-  "bugCount": 1
+  "bugCount": 1,
+  "bugDiversification": true
 }
 ```
 
 Only `repoPath` is required. It can be an absolute local path, a GitHub URL, an SSH GitHub URL, `github.com/owner/repo`, or `owner/repo`.
 
 `bugCount` is optional, defaults to `1`, and must be an integer from `1` to `10`.
+
+`bugDiversification` is optional, defaults to `true`, and tells the bug-seeding prompt to prefer materially different bug categories or failure modes when multiple bugs are requested.
 
 GitHub repositories are cloned into a temporary local directory under `/tmp`; BugFarm does not push changes back to GitHub.
 
@@ -111,7 +114,8 @@ curl -X POST http://localhost:3000/seed-bug \
     "area": "auth",
     "difficulty": "medium",
     "language": "typescript",
-    "bugCount": 1
+    "bugCount": 1,
+    "bugDiversification": true
   }'
 ```
 
@@ -125,7 +129,8 @@ curl -X POST http://localhost:3000/seed-bug \
     "area": "auth",
     "difficulty": "medium",
     "language": "python",
-    "bugCount": 2
+    "bugCount": 2,
+    "bugDiversification": true
   }'
 ```
 
@@ -186,6 +191,7 @@ Request:
   "difficulty": "medium",
   "language": "typescript",
   "bugCount": 1,
+  "bugDiversification": true,
   "role": "backend engineer",
   "assessmentName": "Backend Debugging Screen"
 }

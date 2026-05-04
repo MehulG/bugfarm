@@ -7,6 +7,7 @@ export type SeedBugRequest = {
   language?: string;
   bugCount?: number;
   numberOfBugs?: number;
+  bugDiversification?: boolean;
 };
 
 export type SeedBugSuccess = {

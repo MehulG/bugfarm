@@ -60,6 +60,7 @@ export const openApiDocument = {
                 difficulty: "medium",
                 language: "typescript",
                 bugCount: 1,
+                bugDiversification: true,
               },
             },
           },
@@ -131,6 +132,7 @@ export const openApiDocument = {
                 difficulty: "medium",
                 language: "typescript",
                 bugCount: 1,
+                bugDiversification: true,
                 role: "backend engineer",
                 assessmentName: "Backend Debugging Screen",
               },
@@ -196,6 +198,7 @@ export const openApiDocument = {
                 difficulty: "medium",
                 language: "typescript",
                 bugCount: 1,
+                bugDiversification: true,
                 role: "backend engineer",
                 assessmentName: "Backend Debugging Screen",
               },
@@ -610,6 +613,12 @@ export const openApiDocument = {
             maximum: 10,
             description: "Optional number of distinct bugs to seed. Defaults to 1.",
             default: 1,
+          },
+          bugDiversification: {
+            type: "boolean",
+            description:
+              "Optional prompt hint for whether multiple seeded bugs should be diversified across categories, modules, or failure modes. Defaults to true.",
+            default: true,
           },
           numberOfBugs: {
             type: "integer",

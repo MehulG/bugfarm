@@ -118,6 +118,13 @@ export function validateGenerateBugRequest(request: GenerateBugRequest): void {
     throw new Error("difficulty must be easy, medium, or hard");
   }
 
+  if (
+    request.bugDiversification !== undefined &&
+    typeof request.bugDiversification !== "boolean"
+  ) {
+    throw new Error("bugDiversification must be a boolean");
+  }
+
   const bugCount = request.bugCount ?? request.numberOfBugs ?? 1;
   if (!Number.isInteger(bugCount)) {
     throw new Error("bugCount must be an integer");

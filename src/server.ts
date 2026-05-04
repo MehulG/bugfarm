@@ -190,6 +190,7 @@ function statusCodeForError(message: string): number {
     message === "artifactPath must point to an existing assessment artifact" ||
     message === "assessment.json is invalid" ||
     message === "Repo path does not exist or is not a supported GitHub repo path" ||
+    message === "bugDiversification must be a boolean" ||
     message.startsWith("difficulty must be") ||
     message.startsWith("bugCount must be")
   ) {
