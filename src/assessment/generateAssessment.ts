@@ -1,6 +1,7 @@
 import { generateBugArtifact, validateGenerateBugRequest } from "./generateBug.js";
 import { generateTestsForArtifact } from "./generateTests.js";
 import type { GenerateAssessmentRequest, GenerateAssessmentSuccess } from "./types.js";
+import { createCandidateLaunchForAssessment } from "../candidate/flow.js";
 
 export async function generateAssessment(
   request: GenerateAssessmentRequest,
@@ -11,11 +12,16 @@ export async function generateAssessment(
     artifactPath: bugArtifact.artifactPath,
     language: request.language,
   });
+  const candidateLaunch = await createCandidateLaunchForAssessment({
+    assessmentId: bugArtifact.assessmentId,
+    artifactPath: bugArtifact.artifactPath,
+  });
 
   return {
     status: "success",
     assessmentId: bugArtifact.assessmentId,
     assessmentName: bugArtifact.assessmentName,
+    candidateLaunchUrl: candidateLaunch.candidateLaunchUrl,
     artifactPath: bugArtifact.artifactPath,
     candidateRepoPath: bugArtifact.candidateRepoPath,
     baselineRepoPath: bugArtifact.baselineRepoPath,

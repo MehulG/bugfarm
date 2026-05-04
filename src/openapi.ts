@@ -716,6 +716,7 @@ export const openApiDocument = {
           "status",
           "assessmentId",
           "assessmentName",
+          "candidateLaunchUrl",
           "artifactPath",
           "candidateRepoPath",
           "baselineRepoPath",
@@ -773,6 +774,10 @@ export const openApiDocument = {
           },
           assessmentName: {
             type: "string",
+          },
+          candidateLaunchUrl: {
+            type: "string",
+            format: "uri",
           },
           artifactPath: {
             type: "string",

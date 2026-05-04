@@ -30,6 +30,13 @@ CURSOR_API_KEY=your_cursor_api_key_here
 MODEL_NAME=default
 PORT=3000
 ASSESSMENT_OUTPUT_DIR=./artifacts
+DATABASE_PATH=./bugfarm.sqlite
+PUBLIC_BACKEND_URL=http://localhost:3000
+CODER_URL=https://coder.yourdomain.com
+CODER_API_TOKEN=your_coder_api_token_here
+CODER_ORGANIZATION_ID=your_coder_organization_id_here
+CODER_TEMPLATE_ID=your_coder_template_id_here
+CODER_WORKSPACE_TTL_MS=14400000
 ```
 
 ## Scripts
@@ -199,6 +206,10 @@ Request:
 
 This endpoint is asynchronous. It creates a local assessment artifact under `ASSESSMENT_OUTPUT_DIR`, but only returns jobs whose hidden-test validation eventually succeeds.
 
+On success, BugFarm also creates a pending candidate launch session and returns
+`candidateLaunchUrl`. Opening that secret URL provisions a Coder user and
+workspace for the candidate.
+
 ### Generate Bug
 
 ```http
@@ -323,6 +334,36 @@ artifacts/<assessmentId>/
 
 `baseline-repo/` is the original repo snapshot. `candidate-repo/` is the bugged repo a candidate should fix. `candidate/TASK.md` is candidate-facing and avoids directly revealing the seeded bug.
 
+### Candidate Launch Flow
+
+```http
+GET /candidate/launch/:launchToken
+```
+
+The launch URL is returned by `/generate-assessment`. It is an unguessable,
+expiring secret link. On first open, the backend:
+
+1. Creates a Coder password user.
+2. Creates a Coder workspace from `CODER_TEMPLATE_ID`.
+3. Passes the template parameters `artifact_hash`, `session_id`, and
+   `artifact_token`.
+4. Shows a simple page with the Coder username, generated password, and
+   workspace link.
+
+Candidate browser auto-login to Coder is not implemented in v1.
+
+### Candidate Artifact Download
+
+```http
+GET /api/artifacts/:artifact_hash.zip?session_id=:session_id
+Authorization: Bearer artifact_token
+```
+
+This endpoint is called by the Coder template startup script. It validates the
+session-scoped artifact token and returns a zip containing only the candidate
+repo. The zip includes candidate instructions in the root `README.md` and
+excludes hidden tests, reports, rubric, baseline repo, and assessment metadata.
+
 For this milestone, hidden tests are deterministic and non-candidate-facing. BugFarm asks Cursor to generate a wrapper plus `hidden-tests/spec.json`, captures expected outputs from `baseline-repo`, and then requires `candidate-repo` to diverge on bug-exposing cases while matching baseline on control cases.
 
 If hidden-test generation does not validate after a small number of retries, the artifact is preserved for inspection and `assessment.json` records the failed validation state.
@@ -374,7 +415,8 @@ For `/generate-assessment`:
 1. Validates the request and creates an in-memory background job.
 2. Runs `/generate-bug` internally.
 3. Runs `/generate-tests` internally against the generated artifact.
-4. Exposes the final result or failure through the job polling route.
+4. Creates a pending candidate launch session with a secret launch URL.
+5. Exposes the final result or failure through the job polling route.
 
 ## Notes
 

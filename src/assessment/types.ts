@@ -113,6 +113,7 @@ export type GenerateAssessmentSuccess = {
   status: "success";
   assessmentId: string;
   assessmentName: string;
+  candidateLaunchUrl: string;
   artifactPath: string;
   candidateRepoPath: string;
   baselineRepoPath: string;

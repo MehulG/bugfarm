@@ -15,11 +15,17 @@ import { jobStore } from "./jobs/store.js";
 import type { JobOperation } from "./jobs/types.js";
 import { openApiDocument } from "./openapi.js";
 import { logger } from "./utils/logger.js";
+import {
+  handleArtifactDownload,
+  handleCandidateLaunch,
+  handleCandidatePasswordReset,
+} from "./candidate/flow.js";
 
 export function createServer(): express.Express {
   const app = express();
 
   app.use(express.json({ limit: "1mb" }));
+  app.use(express.urlencoded({ extended: false }));
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
@@ -37,6 +43,36 @@ export function createServer(): express.Express {
       theme: "default",
     }),
   );
+
+  app.get("/candidate/launch/:launchToken", async (req, res) => {
+    try {
+      await handleCandidateLaunch(req, res);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown candidate launch error";
+      logger.error("Failed to launch candidate workspace", { message });
+      res.status(500).json({ status: "error", message });
+    }
+  });
+
+  app.post("/candidate/launch/:launchToken/reset-password", async (req, res) => {
+    try {
+      await handleCandidatePasswordReset(req, res);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown password reset error";
+      logger.error("Failed to reset candidate password", { message });
+      res.status(500).json({ status: "error", message });
+    }
+  });
+
+  app.get("/api/artifacts/:artifactHash.zip", async (req, res) => {
+    try {
+      await handleArtifactDownload(req, res);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown artifact download error";
+      logger.error("Failed to download candidate artifact", { message });
+      res.status(500).json({ status: "error", message });
+    }
+  });
 
   app.post("/seed-bug", async (req, res) => {
     try {

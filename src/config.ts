@@ -9,6 +9,13 @@ export type AppConfig = {
   repoScanMaxFiles: number;
   repoScanMaxChars: number;
   assessmentOutputDir: string;
+  databasePath: string;
+  publicBackendUrl: string;
+  coderUrl?: string;
+  coderApiToken?: string;
+  coderOrganizationId?: string;
+  coderTemplateId?: string;
+  coderWorkspaceTtlMs: number;
 };
 
 function numberFromEnv(name: string, fallback: number): number {
@@ -28,4 +35,11 @@ export const config: AppConfig = {
   repoScanMaxFiles: numberFromEnv("REPO_SCAN_MAX_FILES", 40),
   repoScanMaxChars: numberFromEnv("REPO_SCAN_MAX_CHARS", 150000),
   assessmentOutputDir: process.env.ASSESSMENT_OUTPUT_DIR || "./artifacts",
+  databasePath: process.env.DATABASE_PATH || "./bugfarm.sqlite",
+  publicBackendUrl: process.env.PUBLIC_BACKEND_URL || `http://localhost:${numberFromEnv("PORT", 3000)}`,
+  coderUrl: process.env.CODER_URL,
+  coderApiToken: process.env.CODER_API_TOKEN,
+  coderOrganizationId: process.env.CODER_ORGANIZATION_ID,
+  coderTemplateId: process.env.CODER_TEMPLATE_ID,
+  coderWorkspaceTtlMs: numberFromEnv("CODER_WORKSPACE_TTL_MS", 14_400_000),
 };
