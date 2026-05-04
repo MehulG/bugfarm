@@ -16,7 +16,7 @@ type AgentFinalJson = {
 };
 
 export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> {
-  await validateRequest(request);
+  await validateSeedBugRequest(request);
   const repoTarget = await resolveRepoTarget(request.repoPath);
   const bugCount = getBugCount(request);
   const basePrompt = await loadPrompt();
@@ -63,7 +63,7 @@ export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> 
   };
 }
 
-async function validateRequest(request: SeedBugRequest): Promise<void> {
+export async function validateSeedBugRequest(request: SeedBugRequest): Promise<void> {
   if (!request || typeof request.repoPath !== "string" || request.repoPath.trim() === "") {
     throw new Error("repoPath is required");
   }

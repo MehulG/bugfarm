@@ -46,7 +46,7 @@ export const openApiDocument = {
         summary: "Seed a bug into a repository",
         operationId: "seedBug",
         description:
-          "Runs the Cursor SDK against a local Git repository or a temporary clone of a GitHub repository, then asks it to introduce the requested number of realistic intentional bugs plus a BUG_REPORT.md file.",
+          "Queues a bug-seeding job against a local Git repository or a temporary clone of a GitHub repository. Poll the returned job URL for final results.",
         requestBody: {
           required: true,
           content: {
@@ -65,23 +65,18 @@ export const openApiDocument = {
           },
         },
         responses: {
-          "200": {
-            description: "Bug seeded successfully",
+          "202": {
+            description: "Bug-seeding job accepted",
             content: {
               "application/json": {
                 schema: {
-                  $ref: "#/components/schemas/SeedBugSuccess",
+                  $ref: "#/components/schemas/JobAcceptedResponse",
                 },
                 example: {
-                  status: "success",
-                  requestedRepoPath: "octocat/Hello-World",
-                  repoPath: "/tmp/bugfarm-abcd12/octocat-Hello-World",
-                  repoSource: "github",
-                  summary: "Introduced a realistic token expiry edge-case bug",
-                  difficulty: "medium",
-                  bugCount: 1,
-                  filesChanged: ["src/auth/session.ts", "BUG_REPORT.md"],
-                  bugReportPath: "/absolute/path/to/repo/BUG_REPORT.md",
+                  status: "accepted",
+                  jobId: "4d4bb74abdbfb9f8",
+                  operation: "seed-bug",
+                  pollUrl: "/jobs/4d4bb74abdbfb9f8",
                 },
               },
             },
@@ -122,7 +117,7 @@ export const openApiDocument = {
         summary: "Generate a debugging assessment artifact",
         operationId: "generateAssessment",
         description:
-          "Creates a local assessment artifact with baseline repo, candidate repo, hidden test harness, bug report, patch, task instructions, rubric, and metadata.",
+          "Queues full assessment generation. This combines generate-bug and generate-tests into one flow. Poll the returned job URL for the final validated artifact result.",
         requestBody: {
           required: true,
           content: {
@@ -143,12 +138,18 @@ export const openApiDocument = {
           },
         },
         responses: {
-          "200": {
-            description: "Assessment generated successfully",
+          "202": {
+            description: "Assessment-generation job accepted",
             content: {
               "application/json": {
                 schema: {
-                  $ref: "#/components/schemas/GenerateAssessmentSuccess",
+                  $ref: "#/components/schemas/JobAcceptedResponse",
+                },
+                example: {
+                  status: "accepted",
+                  jobId: "7b8b1ea7c2e0aa34",
+                  operation: "generate-assessment",
+                  pollUrl: "/jobs/7b8b1ea7c2e0aa34",
                 },
               },
             },
@@ -176,9 +177,401 @@ export const openApiDocument = {
         },
       },
     },
+    "/generate-bug": {
+      post: {
+        summary: "Generate an assessment-style bug artifact",
+        operationId: "generateBug",
+        description:
+          "Queues bug generation for an assessment artifact. This creates baseline-repo, candidate-repo, BUG_REPORT.md, TASK.md, patch, rubric, and metadata, but does not yet generate hidden tests.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/GenerateBugRequest",
+              },
+              example: {
+                repoPath: "owner/repo",
+                area: "auth",
+                difficulty: "medium",
+                language: "typescript",
+                bugCount: 1,
+                role: "backend engineer",
+                assessmentName: "Backend Debugging Screen",
+              },
+            },
+          },
+        },
+        responses: {
+          "202": {
+            description: "Generate-bug job accepted",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/JobAcceptedResponse",
+                },
+                example: {
+                  status: "accepted",
+                  jobId: "8194e4ad7e7f3f52",
+                  operation: "generate-bug",
+                  pollUrl: "/jobs/8194e4ad7e7f3f52",
+                },
+              },
+            },
+          },
+          "400": {
+            description: "Invalid request",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SeedBugError",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Bug artifact generation failed",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SeedBugError",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/generate-tests": {
+      post: {
+        summary: "Generate hidden tests for an assessment artifact",
+        operationId: "generateTests",
+        description:
+          "Queues deterministic hidden-test generation and validation for an existing assessment artifact created by generate-bug.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/GenerateTestsRequest",
+              },
+              example: {
+                artifactPath: "/absolute/path/to/artifacts/backend-debugging-screen-20260504103000-a1b2c3d4",
+                language: "python",
+              },
+            },
+          },
+        },
+        responses: {
+          "202": {
+            description: "Generate-tests job accepted",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/JobAcceptedResponse",
+                },
+                example: {
+                  status: "accepted",
+                  jobId: "db1f909ddfd4a365",
+                  operation: "generate-tests",
+                  pollUrl: "/jobs/db1f909ddfd4a365",
+                },
+              },
+            },
+          },
+          "400": {
+            description: "Invalid request",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SeedBugError",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Hidden test generation failed",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SeedBugError",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/jobs/{jobId}": {
+      get: {
+        summary: "Poll job status",
+        operationId: "getJob",
+        parameters: [
+          {
+            name: "jobId",
+            in: "path",
+            required: true,
+            schema: {
+              type: "string",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Current job state",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/JobState",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Job not found",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SeedBugError",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/seed-bug/jobs/{jobId}": {
+      get: {
+        summary: "Poll seed-bug job status",
+        operationId: "getSeedBugJob",
+        parameters: [
+          {
+            name: "jobId",
+            in: "path",
+            required: true,
+            schema: {
+              type: "string",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Current seed-bug job state",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/JobState",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Job not found",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SeedBugError",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/generate-assessment/jobs/{jobId}": {
+      get: {
+        summary: "Poll assessment job status",
+        operationId: "getGenerateAssessmentJob",
+        parameters: [
+          {
+            name: "jobId",
+            in: "path",
+            required: true,
+            schema: {
+              type: "string",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Current assessment job state",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/JobState",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Job not found",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SeedBugError",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/generate-bug/jobs/{jobId}": {
+      get: {
+        summary: "Poll generate-bug job status",
+        operationId: "getGenerateBugJob",
+        parameters: [
+          {
+            name: "jobId",
+            in: "path",
+            required: true,
+            schema: {
+              type: "string",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Current generate-bug job state",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/JobState",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Job not found",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SeedBugError",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/generate-tests/jobs/{jobId}": {
+      get: {
+        summary: "Poll generate-tests job status",
+        operationId: "getGenerateTestsJob",
+        parameters: [
+          {
+            name: "jobId",
+            in: "path",
+            required: true,
+            schema: {
+              type: "string",
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Current generate-tests job state",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/JobState",
+                },
+              },
+            },
+          },
+          "404": {
+            description: "Job not found",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SeedBugError",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
   components: {
     schemas: {
+      JobAcceptedResponse: {
+        type: "object",
+        required: ["status", "jobId", "operation", "pollUrl"],
+        properties: {
+          status: {
+            type: "string",
+            const: "accepted",
+          },
+          jobId: {
+            type: "string",
+          },
+          operation: {
+            type: "string",
+            enum: ["seed-bug", "generate-bug", "generate-tests", "generate-assessment"],
+          },
+          pollUrl: {
+            type: "string",
+          },
+        },
+      },
+      JobState: {
+        type: "object",
+        required: ["jobId", "operation", "status", "createdAt", "pollUrl"],
+        properties: {
+          jobId: {
+            type: "string",
+          },
+          operation: {
+            type: "string",
+            enum: ["seed-bug", "generate-bug", "generate-tests", "generate-assessment"],
+          },
+          status: {
+            type: "string",
+            enum: ["queued", "running", "succeeded", "failed"],
+          },
+          createdAt: {
+            type: "string",
+            format: "date-time",
+          },
+          startedAt: {
+            type: "string",
+            format: "date-time",
+          },
+          completedAt: {
+            type: "string",
+            format: "date-time",
+          },
+          pollUrl: {
+            type: "string",
+          },
+          result: {
+            oneOf: [
+              {
+                $ref: "#/components/schemas/SeedBugSuccess",
+              },
+              {
+                $ref: "#/components/schemas/GenerateAssessmentSuccess",
+              },
+              {
+                $ref: "#/components/schemas/GenerateBugSuccess",
+              },
+              {
+                $ref: "#/components/schemas/GenerateTestsSuccess",
+              },
+            ],
+          },
+          error: {
+            type: "object",
+            required: ["message"],
+            properties: {
+              message: {
+                type: "string",
+              },
+            },
+          },
+        },
+      },
       SeedBugRequest: {
         type: "object",
         required: ["repoPath"],
@@ -248,6 +641,98 @@ export const openApiDocument = {
             },
           },
         ],
+      },
+      GenerateBugRequest: {
+        $ref: "#/components/schemas/GenerateAssessmentRequest",
+      },
+      GenerateTestsRequest: {
+        type: "object",
+        required: ["artifactPath"],
+        properties: {
+          artifactPath: {
+            type: "string",
+            description: "Absolute path to an existing artifact directory created by generate-bug.",
+          },
+          language: {
+            type: "string",
+            description: "Optional hint for the hidden-test generator.",
+            examples: ["python"],
+          },
+        },
+      },
+      GenerateBugSuccess: {
+        type: "object",
+        required: [
+          "status",
+          "assessmentId",
+          "assessmentName",
+          "requestedRepoPath",
+          "repoSource",
+          "artifactPath",
+          "candidateRepoPath",
+          "baselineRepoPath",
+          "hiddenTestsPath",
+          "filesChanged",
+          "summary",
+          "difficulty",
+          "bugCount",
+          "bugReportPath",
+          "taskPath",
+          "patchPath",
+          "rubricPath"
+        ],
+        properties: {
+          status: { type: "string", const: "success" },
+          assessmentId: { type: "string" },
+          assessmentName: { type: "string" },
+          requestedRepoPath: { type: "string" },
+          repoSource: { type: "string", enum: ["local", "github"] },
+          artifactPath: { type: "string" },
+          candidateRepoPath: { type: "string" },
+          baselineRepoPath: { type: "string" },
+          hiddenTestsPath: { type: "string" },
+          filesChanged: { type: "array", items: { type: "string" } },
+          summary: { type: "string" },
+          difficulty: { type: "string" },
+          bugCount: { type: "integer" },
+          bugReportPath: { type: "string" },
+          taskPath: { type: "string" },
+          patchPath: { type: "string" },
+          rubricPath: { type: "string" },
+        },
+      },
+      GenerateTestsSuccess: {
+        type: "object",
+        required: [
+          "status",
+          "assessmentId",
+          "assessmentName",
+          "artifactPath",
+          "candidateRepoPath",
+          "baselineRepoPath",
+          "hiddenTestsPath",
+          "validation",
+          "filesChanged",
+          "bugReportPath",
+          "taskPath",
+          "patchPath",
+          "rubricPath"
+        ],
+        properties: {
+          status: { type: "string", const: "success" },
+          assessmentId: { type: "string" },
+          assessmentName: { type: "string" },
+          artifactPath: { type: "string" },
+          candidateRepoPath: { type: "string" },
+          baselineRepoPath: { type: "string" },
+          hiddenTestsPath: { type: "string" },
+          validation: { $ref: "#/components/schemas/AssessmentValidation" },
+          filesChanged: { type: "array", items: { type: "string" } },
+          bugReportPath: { type: "string" },
+          taskPath: { type: "string" },
+          patchPath: { type: "string" },
+          rubricPath: { type: "string" },
+        },
       },
       GenerateAssessmentSuccess: {
         type: "object",
@@ -332,7 +817,7 @@ export const openApiDocument = {
             type: "string",
             enum: ["passed", "failed", "skipped"],
             description:
-              "Passed means baseline tests passed and candidate tests failed, which indicates the generated assessment is catchable.",
+              "Passed means baseline wrapper cases matched the oracle and candidate diverged on bug-exposing cases while matching control cases.",
           },
           ecosystem: {
             type: "string",
@@ -340,6 +825,21 @@ export const openApiDocument = {
           },
           hiddenTestsPath: {
             type: "string",
+          },
+          retryCount: {
+            type: "integer",
+          },
+          wrapperEntrypoints: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+          targetSymbols: {
+            type: "array",
+            items: {
+              type: "string",
+            },
           },
           baseline: {
             $ref: "#/components/schemas/AssessmentValidationRun",
@@ -352,6 +852,9 @@ export const openApiDocument = {
             items: {
               type: "string",
             },
+          },
+          rejectedReason: {
+            type: "string",
           },
         },
       },

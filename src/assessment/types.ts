@@ -1,8 +1,18 @@
 import type { BugDifficulty, SeedBugRequest } from "../bugfarm/types.js";
 
+export type GenerateBugRequest = SeedBugRequest & {
+  role?: string;
+  assessmentName?: string;
+};
+
 export type GenerateAssessmentRequest = SeedBugRequest & {
   role?: string;
   assessmentName?: string;
+};
+
+export type GenerateTestsRequest = {
+  artifactPath: string;
+  language?: string;
 };
 
 export type AssessmentValidationRun = {
@@ -18,9 +28,13 @@ export type AssessmentValidation = {
   status: "passed" | "failed" | "skipped";
   ecosystem: "node" | "python" | "unknown";
   hiddenTestsPath: string;
+  retryCount: number;
+  wrapperEntrypoints: string[];
+  targetSymbols: string[];
   baseline: AssessmentValidationRun;
   candidate: AssessmentValidationRun;
   notes: string[];
+  rejectedReason?: string;
 };
 
 export type AssessmentRubric = {
@@ -40,6 +54,7 @@ export type AssessmentMetadata = {
   assessmentId: string;
   assessmentName: string;
   createdAt: string;
+  stage: "bug-generated" | "test-generation-failed" | "assessment-complete";
   requestedRepoPath: string;
   repoSource: "local" | "github";
   artifactPath: string;
@@ -54,8 +69,44 @@ export type AssessmentMetadata = {
   difficulty: string;
   bugCount: number;
   filesChanged: string[];
-  validation: AssessmentValidation;
+  validation?: AssessmentValidation;
   rubric: AssessmentRubric;
+};
+
+export type GenerateBugSuccess = {
+  status: "success";
+  assessmentId: string;
+  assessmentName: string;
+  requestedRepoPath: string;
+  repoSource: "local" | "github";
+  artifactPath: string;
+  candidateRepoPath: string;
+  baselineRepoPath: string;
+  hiddenTestsPath: string;
+  filesChanged: string[];
+  summary: string;
+  difficulty: string;
+  bugCount: number;
+  bugReportPath: string;
+  taskPath: string;
+  patchPath: string;
+  rubricPath: string;
+};
+
+export type GenerateTestsSuccess = {
+  status: "success";
+  assessmentId: string;
+  assessmentName: string;
+  artifactPath: string;
+  candidateRepoPath: string;
+  baselineRepoPath: string;
+  hiddenTestsPath: string;
+  validation: AssessmentValidation;
+  filesChanged: string[];
+  bugReportPath: string;
+  taskPath: string;
+  patchPath: string;
+  rubricPath: string;
 };
 
 export type GenerateAssessmentSuccess = {

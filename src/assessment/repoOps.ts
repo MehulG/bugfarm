@@ -58,6 +58,12 @@ export async function restorePostSeedIgnoredFiles(repoPath: string): Promise<voi
   });
 }
 
+export async function initializeArtifactWorkspace(workspacePath: string): Promise<void> {
+  await execFileAsync("git", ["init", workspacePath], {
+    maxBuffer: 10 * 1024 * 1024,
+  });
+}
+
 async function buildUntrackedPatch(repoPath: string): Promise<string> {
   const stdout = await getGitOutput(repoPath, ["ls-files", "--others", "--exclude-standard"]);
   const files = stdout
@@ -127,5 +133,7 @@ function shouldExclude(sourcePath: string, rootPath: string): boolean {
     return false;
   }
 
-  return relativePath.split(path.sep).some((part) => EXCLUDED_DIRS.has(part));
+  return relativePath
+    .split(path.sep)
+    .some((part) => EXCLUDED_DIRS.has(part) || part.endsWith(".egg-info"));
 }
