@@ -1,0 +1,9 @@
+node_modules
+dist
+artifacts
+.git
+.env
+bugfarm.sqlite
+template.zip
+coder template
+npm-debug.log
