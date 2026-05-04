@@ -1,0 +1,20 @@
+services:
+  bugfarm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bugfarm-poc:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: "3000"
+      ASSESSMENT_OUTPUT_DIR: /var/lib/bugfarm/artifacts
+      DATABASE_PATH: /var/lib/bugfarm/bugfarm.sqlite
+    ports:
+      - "3000:3000"
+    volumes:
+      - bugfarm-data:/var/lib/bugfarm
+
+volumes:
+  bugfarm-data:
