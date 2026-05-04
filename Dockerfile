@@ -13,8 +13,7 @@ RUN apt-get update \
 COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY tsconfig.json ./
-COPY src ./src
+COPY . .
 RUN npm run build
 RUN npm prune --omit=dev
 
@@ -36,13 +35,12 @@ RUN apt-get update \
   && mkdir -p /var/lib/bugfarm/artifacts \
   && chown -R node:node /var/lib/bugfarm /app
 
-COPY --from=build --chown=node:node /app/package.json ./package.json
-COPY --from=build --chown=node:node /app/package-lock.json ./package-lock.json
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/prompts ./prompts
 
 USER node
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "dist/index.js"]

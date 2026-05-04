@@ -2,8 +2,16 @@ node_modules
 dist
 artifacts
 .git
+.codex
+.agents
 .env
-bugfarm.sqlite
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+*.db
+*.log
+*.zip
 template.zip
 coder template
-npm-debug.log
+npm-debug.log*
