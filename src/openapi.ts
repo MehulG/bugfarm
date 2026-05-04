@@ -1,3 +1,5 @@
+import { config } from "./config.js";
+
 export const openApiDocument = {
   openapi: "3.1.0",
   info: {
@@ -8,8 +10,8 @@ export const openApiDocument = {
   },
   servers: [
     {
-      url: "http://localhost:3000",
-      description: "Local development server",
+      url: config.publicBackendUrl,
+      description: "Configured backend URL",
     },
   ],
   paths: {
