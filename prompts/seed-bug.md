@@ -5,6 +5,7 @@ Introduce exactly the requested number of realistic intentional bugs into this r
 Rules:
 - Only modify source/application code.
 - Do not modify tests.
+- Do not modify dependency manifests, lock files, generated files, build outputs, or formatting-only files.
 - Do not delete files.
 - Do not introduce malware, data exfiltration, persistence, credential theft, auth bypasses, or destructive behavior.
 - Do not hide your changes.
@@ -13,7 +14,7 @@ Rules:
 - Keep the change minimal.
 - Match the requested difficulty to how hard the bug should be for users to debug with AI coding assistants like Cursor.
 - If more than one bug is requested, each bug should be distinct and documented separately.
-- Create a BUG_REPORT.md file at repo root.
+- Create a BUG_REPORT.md file at repo root for assessment metadata. This report is not candidate-facing.
 
 BUG_REPORT.md must include:
 1. Bug summary for each seeded bug

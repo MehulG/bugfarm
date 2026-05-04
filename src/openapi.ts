@@ -117,6 +117,65 @@ export const openApiDocument = {
         },
       },
     },
+    "/generate-assessment": {
+      post: {
+        summary: "Generate a debugging assessment artifact",
+        operationId: "generateAssessment",
+        description:
+          "Creates a local assessment artifact with baseline repo, candidate repo, hidden test harness, bug report, patch, task instructions, rubric, and metadata.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                $ref: "#/components/schemas/GenerateAssessmentRequest",
+              },
+              example: {
+                repoPath: "owner/repo",
+                area: "auth",
+                difficulty: "medium",
+                language: "typescript",
+                bugCount: 1,
+                role: "backend engineer",
+                assessmentName: "Backend Debugging Screen",
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Assessment generated successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/GenerateAssessmentSuccess",
+                },
+              },
+            },
+          },
+          "400": {
+            description: "Invalid request",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SeedBugError",
+                },
+              },
+            },
+          },
+          "500": {
+            description: "Assessment generation failed",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/SeedBugError",
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -165,6 +224,160 @@ export const openApiDocument = {
             maximum: 10,
             deprecated: true,
             description: "Alias for bugCount.",
+          },
+        },
+      },
+      GenerateAssessmentRequest: {
+        allOf: [
+          {
+            $ref: "#/components/schemas/SeedBugRequest",
+          },
+          {
+            type: "object",
+            properties: {
+              role: {
+                type: "string",
+                description: "Optional role focus for candidate instructions and rubric metadata.",
+                examples: ["backend engineer"],
+              },
+              assessmentName: {
+                type: "string",
+                description: "Optional display name used for artifact ID and TASK.md title.",
+                examples: ["Backend Debugging Screen"],
+              },
+            },
+          },
+        ],
+      },
+      GenerateAssessmentSuccess: {
+        type: "object",
+        required: [
+          "status",
+          "assessmentId",
+          "assessmentName",
+          "artifactPath",
+          "candidateRepoPath",
+          "baselineRepoPath",
+          "hiddenTestsPath",
+          "validation",
+          "filesChanged",
+          "summary",
+          "difficulty",
+          "bugCount",
+          "bugReportPath",
+          "taskPath",
+          "patchPath",
+          "rubricPath",
+        ],
+        properties: {
+          status: {
+            type: "string",
+            const: "success",
+          },
+          assessmentId: {
+            type: "string",
+          },
+          assessmentName: {
+            type: "string",
+          },
+          artifactPath: {
+            type: "string",
+          },
+          candidateRepoPath: {
+            type: "string",
+          },
+          baselineRepoPath: {
+            type: "string",
+          },
+          hiddenTestsPath: {
+            type: "string",
+          },
+          validation: {
+            $ref: "#/components/schemas/AssessmentValidation",
+          },
+          filesChanged: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+          summary: {
+            type: "string",
+          },
+          difficulty: {
+            type: "string",
+          },
+          bugCount: {
+            type: "integer",
+          },
+          bugReportPath: {
+            type: "string",
+          },
+          taskPath: {
+            type: "string",
+          },
+          patchPath: {
+            type: "string",
+          },
+          rubricPath: {
+            type: "string",
+          },
+        },
+      },
+      AssessmentValidation: {
+        type: "object",
+        required: ["status", "ecosystem", "hiddenTestsPath", "baseline", "candidate", "notes"],
+        properties: {
+          status: {
+            type: "string",
+            enum: ["passed", "failed", "skipped"],
+            description:
+              "Passed means baseline tests passed and candidate tests failed, which indicates the generated assessment is catchable.",
+          },
+          ecosystem: {
+            type: "string",
+            enum: ["node", "python", "unknown"],
+          },
+          hiddenTestsPath: {
+            type: "string",
+          },
+          baseline: {
+            $ref: "#/components/schemas/AssessmentValidationRun",
+          },
+          candidate: {
+            $ref: "#/components/schemas/AssessmentValidationRun",
+          },
+          notes: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+          },
+        },
+      },
+      AssessmentValidationRun: {
+        type: "object",
+        required: ["target", "status"],
+        properties: {
+          target: {
+            type: "string",
+            enum: ["baseline", "candidate"],
+          },
+          status: {
+            type: "string",
+            enum: ["passed", "failed", "skipped"],
+          },
+          command: {
+            type: "string",
+          },
+          exitCode: {
+            type: "integer",
+          },
+          output: {
+            type: "string",
+          },
+          reason: {
+            type: "string",
           },
         },
       },

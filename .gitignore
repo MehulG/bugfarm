@@ -8,5 +8,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 coverage/
+artifacts/
 .DS_Store
 *.tsbuildinfo

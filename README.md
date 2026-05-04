@@ -29,6 +29,7 @@ Set your Cursor API key in `.env`:
 CURSOR_API_KEY=your_cursor_api_key_here
 MODEL_NAME=default
 PORT=3000
+ASSESSMENT_OUTPUT_DIR=./artifacts
 ```
 
 ## Scripts
@@ -139,6 +140,72 @@ Success response:
 }
 ```
 
+### Generate Assessment
+
+```http
+POST /generate-assessment
+```
+
+Request:
+
+```json
+{
+  "repoPath": "owner/repo",
+  "area": "auth",
+  "difficulty": "medium",
+  "language": "typescript",
+  "bugCount": 1,
+  "role": "backend engineer",
+  "assessmentName": "Backend Debugging Screen"
+}
+```
+
+This endpoint creates a local assessment artifact under `ASSESSMENT_OUTPUT_DIR`.
+
+Success response:
+
+```json
+{
+  "status": "success",
+  "assessmentId": "backend-debugging-screen-20260504094530-a1b2c3d4",
+  "assessmentName": "Backend Debugging Screen",
+  "artifactPath": "/absolute/path/to/artifacts/backend-debugging-screen-20260504094530-a1b2c3d4",
+  "candidateRepoPath": "/absolute/path/to/artifacts/backend-debugging-screen-20260504094530-a1b2c3d4/candidate-repo",
+  "baselineRepoPath": "/absolute/path/to/artifacts/backend-debugging-screen-20260504094530-a1b2c3d4/baseline-repo",
+  "hiddenTestsPath": "/absolute/path/to/artifacts/backend-debugging-screen-20260504094530-a1b2c3d4/hidden-tests",
+  "validation": {
+    "status": "passed",
+    "ecosystem": "node"
+  },
+  "filesChanged": ["src/auth/session.ts", "BUG_REPORT.md"],
+  "summary": "Seeded a realistic intentional bug",
+  "difficulty": "medium",
+  "bugCount": 1,
+  "bugReportPath": "/absolute/path/to/artifacts/backend-debugging-screen-20260504094530-a1b2c3d4/reports/BUG_REPORT.md",
+  "taskPath": "/absolute/path/to/artifacts/backend-debugging-screen-20260504094530-a1b2c3d4/candidate/TASK.md",
+  "patchPath": "/absolute/path/to/artifacts/backend-debugging-screen-20260504094530-a1b2c3d4/patches/bug.patch",
+  "rubricPath": "/absolute/path/to/artifacts/backend-debugging-screen-20260504094530-a1b2c3d4/rubric.json"
+}
+```
+
+Artifact layout:
+
+```text
+artifacts/<assessmentId>/
+  assessment.json
+  baseline-repo/
+  candidate-repo/
+  hidden-tests/
+  reports/BUG_REPORT.md
+  patches/bug.patch
+  candidate/TASK.md
+  rubric.json
+```
+
+`baseline-repo/` is the original repo snapshot. `candidate-repo/` is the bugged repo a candidate should fix. `candidate/TASK.md` is candidate-facing and avoids directly revealing the seeded bug.
+
+For v1, hidden test validation supports TypeScript/Node and Python repositories when a test runner is detectable. Node validation uses `npm test`. Python validation uses `python -m pytest`. If no supported runner is detected, validation is marked `skipped` with a reason.
+
 Error response:
 
 ```json
@@ -150,6 +217,8 @@ Error response:
 
 ## How It Works
 
+For `/seed-bug`:
+
 1. Resolves the requested repository path, cloning GitHub inputs into `/tmp`.
 2. Loads the prompt from `prompts/seed-bug.md`.
 3. Scans the target repo for a compact file tree and selected source snippets.
@@ -157,6 +226,15 @@ Error response:
 5. Reads changed files from Git.
 6. Confirms `BUG_REPORT.md` exists.
 7. Returns a structured JSON response.
+
+For `/generate-assessment`:
+
+1. Resolves the requested repository path.
+2. Copies the original repo into `baseline-repo/`.
+3. Copies the baseline into `candidate-repo/`.
+4. Runs the bug seeder against `candidate-repo/`.
+5. Writes `BUG_REPORT.md`, `TASK.md`, `rubric.json`, `bug.patch`, hidden test harness files, and `assessment.json`.
+6. Runs validation when a supported test command is detected.
 
 ## Notes
 

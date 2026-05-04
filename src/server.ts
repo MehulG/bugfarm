@@ -1,5 +1,7 @@
 import { apiReference } from "@scalar/express-api-reference";
 import express from "express";
+import { generateAssessment } from "./assessment/generateAssessment.js";
+import type { GenerateAssessmentRequest } from "./assessment/types.js";
 import { seedBug } from "./bugfarm/seedBug.js";
 import type { SeedBugError, SeedBugRequest } from "./bugfarm/types.js";
 import { openApiDocument } from "./openapi.js";
@@ -40,6 +42,23 @@ export function createServer(): express.Express {
       };
 
       logger.error("Failed to seed bug", { message });
+      res.status(statusCodeForError(message)).json(response);
+    }
+  });
+
+  app.post("/generate-assessment", async (req, res) => {
+    try {
+      const payload = req.body as GenerateAssessmentRequest;
+      const result = await generateAssessment(payload);
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      const response: SeedBugError = {
+        status: "error",
+        message,
+      };
+
+      logger.error("Failed to generate assessment", { message });
       res.status(statusCodeForError(message)).json(response);
     }
   });

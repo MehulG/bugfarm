@@ -8,6 +8,7 @@ export type AppConfig = {
   modelName: string;
   repoScanMaxFiles: number;
   repoScanMaxChars: number;
+  assessmentOutputDir: string;
 };
 
 function numberFromEnv(name: string, fallback: number): number {
@@ -26,4 +27,5 @@ export const config: AppConfig = {
   modelName: process.env.MODEL_NAME || "default",
   repoScanMaxFiles: numberFromEnv("REPO_SCAN_MAX_FILES", 40),
   repoScanMaxChars: numberFromEnv("REPO_SCAN_MAX_CHARS", 150000),
+  assessmentOutputDir: process.env.ASSESSMENT_OUTPUT_DIR || "./artifacts",
 };
