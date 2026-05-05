@@ -183,13 +183,13 @@ if [ -z "$PROMPT" ]; then
   exit 1
 fi
 
-if [ -z "${AI_PROXY_URL:-}" ] || [ -z "${AI_PROXY_TOKEN:-}" ]; then
+if [ -z "$${AI_PROXY_URL:-}" ] || [ -z "$${AI_PROXY_TOKEN:-}" ]; then
   if [ -f "$HOME/.bugfarm-ai.env" ]; then
     . "$HOME/.bugfarm-ai.env"
   fi
 fi
 
-if [ -z "${AI_PROXY_URL:-}" ] || [ -z "${AI_PROXY_TOKEN:-}" ]; then
+if [ -z "$${AI_PROXY_URL:-}" ] || [ -z "$${AI_PROXY_TOKEN:-}" ]; then
   echo "AI proxy is not configured in this workspace" >&2
   exit 1
 fi
