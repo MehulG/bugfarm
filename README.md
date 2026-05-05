@@ -76,17 +76,13 @@ Edit `.env.vm` with:
 
 - `CODER_ACCESS_URL`: public Coder URL, for example an ngrok URL.
 - `PUBLIC_BACKEND_URL`: public backend URL, for example an OutRay URL.
-- `CODER_API_TOKEN`: admin Coder API token.
 - `CURSOR_API_KEY`, `AI_UPSTREAM_API_KEY`, and `AI_UPSTREAM_MODEL`.
 
-For a fresh Coder database, start only Coder first, create the admin user in the
-browser, create an API token, and put it in `.env.vm`:
-
-```bash
-docker compose --env-file .env.vm -f compose.vm.yaml up -d coder-database coder
-```
-
-Then run:
+On a fresh Coder database, the script creates the first admin user from
+`CODER_ADMIN_EMAIL`, `CODER_ADMIN_USERNAME`, and `CODER_ADMIN_PASSWORD`, creates
+a Coder API token, writes `CODER_API_TOKEN` back into `.env.vm`, then continues.
+It also imports `CURSOR_API_KEY`, `AI_UPSTREAM_API_KEY`, and
+`AI_UPSTREAM_MODEL` from `.env` when `.env.vm` still has placeholders.
 
 ```bash
 ./scripts/vm-up.sh

@@ -9,7 +9,7 @@ TEMPLATE_DIR="$ROOT_DIR/coder template"
 if [ ! -f "$ENV_FILE" ]; then
   cp "$ROOT_DIR/.env.vm.example" "$ENV_FILE"
   echo "Created $ENV_FILE from .env.vm.example."
-  echo "Edit $ENV_FILE with your tunnel URLs and tokens, then run this script again."
+  echo "Edit $ENV_FILE with your tunnel URLs and provider keys, then run this script again."
   exit 1
 fi
 
@@ -17,19 +17,26 @@ set -a
 . "$ENV_FILE"
 set +a
 
-require_env() {
-  name="$1"
-  value=$(eval "printf '%s' \"\${$name:-}\"")
+is_placeholder_value() {
+  value="$1"
   if [ -z "$value" ]; then
-    echo "Missing required env: $name in $ENV_FILE" >&2
-    exit 1
+    return 0
   fi
   case "$value" in
     *your_*|*example.com*|*"_here")
-      echo "Replace placeholder value for $name in $ENV_FILE" >&2
-      exit 1
+      return 0
       ;;
   esac
+  return 1
+}
+
+require_env() {
+  name="$1"
+  value=$(eval "printf '%s' \"\${$name:-}\"")
+  if is_placeholder_value "$value"; then
+    echo "Missing required env: $name in $ENV_FILE" >&2
+    exit 1
+  fi
 }
 
 require_command() {
@@ -55,8 +62,51 @@ upsert_env() {
   mv "$tmp" "$ENV_FILE"
 }
 
+read_env_file_value() {
+  name="$1"
+  file="$2"
+  if [ ! -f "$file" ]; then
+    return 1
+  fi
+  awk -v key="$name" '
+    index($0, key "=") == 1 {
+      sub("^[^=]*=", "")
+      print
+      found = 1
+      exit
+    }
+    END {
+      if (!found) {
+        exit 1
+      }
+    }
+  ' "$file"
+}
+
+import_from_dotenv_if_missing() {
+  name="$1"
+  current_value=$(eval "printf '%s' \"\${$name:-}\"")
+  if ! is_placeholder_value "$current_value"; then
+    return 0
+  fi
+  imported_value=$(read_env_file_value "$name" "$ROOT_DIR/.env" 2>/dev/null || true)
+  if is_placeholder_value "$imported_value"; then
+    return 0
+  fi
+  upsert_env "$name" "$imported_value"
+  echo "Imported $name from .env into .env.vm."
+}
+
+import_from_dotenv_if_missing CURSOR_API_KEY
+import_from_dotenv_if_missing AI_UPSTREAM_BASE_URL
+import_from_dotenv_if_missing AI_UPSTREAM_API_KEY
+import_from_dotenv_if_missing AI_UPSTREAM_MODEL
+
+set -a
+. "$ENV_FILE"
+set +a
+
 require_env CODER_ACCESS_URL
-require_env CODER_API_TOKEN
 require_env PUBLIC_BACKEND_URL
 require_env CURSOR_API_KEY
 require_env AI_UPSTREAM_API_KEY
@@ -69,6 +119,11 @@ require_command python3
 
 CODER_TEMPLATE_NAME="${CODER_TEMPLATE_NAME:-artifact-template}"
 CODER_API_URL="${CODER_API_URL:-http://host.docker.internal:7080}"
+CODER_CLI_URL="${CODER_CLI_URL:-http://127.0.0.1:7080}"
+CODER_ADMIN_EMAIL="${CODER_ADMIN_EMAIL:-admin@bugfarm.ai}"
+CODER_ADMIN_USERNAME="${CODER_ADMIN_USERNAME:-admin}"
+CODER_ADMIN_FULL_NAME="${CODER_ADMIN_FULL_NAME:-BugFarm Admin}"
+CODER_ADMIN_PASSWORD="${CODER_ADMIN_PASSWORD:-Admin@1234567890}"
 CODER_WORKSPACE_TTL_MS="${CODER_WORKSPACE_TTL_MS:-14400000}"
 AI_PROXY_ENABLED="${AI_PROXY_ENABLED:-true}"
 AI_UPSTREAM_BASE_URL="${AI_UPSTREAM_BASE_URL:-https://api.openai.com/v1}"
@@ -99,12 +154,43 @@ if [ "$attempt" -gt 60 ]; then
   exit 1
 fi
 
-export CODER_URL="$CODER_ACCESS_URL"
-export CODER_SESSION_TOKEN="$CODER_API_TOKEN"
+export CODER_URL="$CODER_CLI_URL"
+export CODER_SESSION_TOKEN="${CODER_API_TOKEN:-}"
+
+if is_placeholder_value "${CODER_API_TOKEN:-}" || ! coder whoami >/dev/null 2>&1; then
+  echo "Bootstrapping Coder admin and API token..."
+  unset CODER_SESSION_TOKEN
+  export CODER_FIRST_USER_EMAIL="$CODER_ADMIN_EMAIL"
+  export CODER_FIRST_USER_USERNAME="$CODER_ADMIN_USERNAME"
+  export CODER_FIRST_USER_FULL_NAME="$CODER_ADMIN_FULL_NAME"
+  export CODER_FIRST_USER_PASSWORD="$CODER_ADMIN_PASSWORD"
+  export CODER_FIRST_USER_TRIAL=false
+
+  if ! coder login "$CODER_CLI_URL" \
+    --first-user-email "$CODER_ADMIN_EMAIL" \
+    --first-user-username "$CODER_ADMIN_USERNAME" \
+    --first-user-full-name "$CODER_ADMIN_FULL_NAME" \
+    --first-user-password "$CODER_ADMIN_PASSWORD" \
+    --first-user-trial=false >/dev/null; then
+    echo "Could not bootstrap/login to Coder at $CODER_CLI_URL." >&2
+    echo "Check Coder logs with:" >&2
+    echo "docker compose --env-file $ENV_FILE -f $COMPOSE_FILE logs coder" >&2
+    exit 1
+  fi
+
+  token_name="bugfarm-vm-admin-$(date +%Y%m%d%H%M%S)"
+  CODER_API_TOKEN=$(coder tokens create --name "$token_name" --lifetime 8760h | tail -n 1)
+  if is_placeholder_value "$CODER_API_TOKEN"; then
+    echo "Coder login worked, but token creation did not return a token." >&2
+    exit 1
+  fi
+  upsert_env CODER_API_TOKEN "$CODER_API_TOKEN"
+  export CODER_SESSION_TOKEN="$CODER_API_TOKEN"
+  echo "Created Coder admin API token and wrote it to .env.vm."
+fi
 
 if ! coder whoami >/dev/null 2>&1; then
-  echo "CODER_API_TOKEN could not authenticate to $CODER_ACCESS_URL." >&2
-  echo "Create/login as the first Coder admin, create an API token, set CODER_API_TOKEN in $ENV_FILE, then rerun." >&2
+  echo "CODER_API_TOKEN could not authenticate to $CODER_CLI_URL." >&2
   exit 1
 fi
 

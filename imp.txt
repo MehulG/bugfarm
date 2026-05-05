@@ -1,0 +1,23 @@
+- change coder env
+- add template using coder cli
+```
+coder templates push artifact-template
+```
+- change env backend
+- get org id coder
+```
+coder organizations list
+```
+- get template id coder
+```
+coder templates list -o json
+```
+
+
+---
+clean redeploy of coder
+```
+docker compose down -v
+docker compose up -d
+```
+---
