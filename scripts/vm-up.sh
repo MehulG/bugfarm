@@ -124,6 +124,7 @@ CODER_ADMIN_EMAIL="${CODER_ADMIN_EMAIL:-admin@bugfarm.ai}"
 CODER_ADMIN_USERNAME="${CODER_ADMIN_USERNAME:-admin}"
 CODER_ADMIN_FULL_NAME="${CODER_ADMIN_FULL_NAME:-BugFarm Admin}"
 CODER_ADMIN_PASSWORD="${CODER_ADMIN_PASSWORD:-Admin@1234567890}"
+CODER_API_TOKEN_LIFETIME="${CODER_API_TOKEN_LIFETIME:-168h}"
 CODER_WORKSPACE_TTL_MS="${CODER_WORKSPACE_TTL_MS:-14400000}"
 AI_PROXY_ENABLED="${AI_PROXY_ENABLED:-true}"
 AI_UPSTREAM_BASE_URL="${AI_UPSTREAM_BASE_URL:-https://api.openai.com/v1}"
@@ -179,7 +180,7 @@ if is_placeholder_value "${CODER_API_TOKEN:-}" || ! coder whoami >/dev/null 2>&1
   fi
 
   token_name="bugfarm-vm-admin-$(date +%Y%m%d%H%M%S)"
-  CODER_API_TOKEN=$(coder tokens create --name "$token_name" --lifetime 8760h | tail -n 1)
+  CODER_API_TOKEN=$(coder tokens create --name "$token_name" --lifetime "$CODER_API_TOKEN_LIFETIME" | tail -n 1)
   if is_placeholder_value "$CODER_API_TOKEN"; then
     echo "Coder login worked, but token creation did not return a token." >&2
     exit 1
