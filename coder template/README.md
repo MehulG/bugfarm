@@ -111,6 +111,8 @@ token. Verify:
   `/v1` proxy.
 - `~/.cline/data/secrets.json` contains only the scoped AI proxy token, not a
   real provider API key.
+- The workspace environment contains `CLINE_DIR=/home/coder/.cline` so
+  code-server's extension host reads the preseeded Cline state.
 - `bugfarm-ai "Say hello"` works from the terminal.
 - `AI_ASSISTANT.md` exists in `/home/coder/project` and explains that Cline is
   preconfigured.

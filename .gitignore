@@ -3,11 +3,13 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.vm.example
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 coverage/
 artifacts/
+data/
 .DS_Store
 *.tsbuildinfo

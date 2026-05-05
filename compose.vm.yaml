@@ -1,0 +1,69 @@
+services:
+  coder:
+    image: ghcr.io/coder/coder:latest
+    ports:
+      - "7080:7080"
+    environment:
+      CODER_PG_CONNECTION_URL: "postgres://${POSTGRES_USER:-username}:${POSTGRES_PASSWORD:-password}@coder-database/${POSTGRES_DB:-coder}?sslmode=disable"
+      CODER_HTTP_ADDRESS: "0.0.0.0:7080"
+      CODER_ACCESS_URL: "${CODER_ACCESS_URL}"
+      CODER_WILDCARD_ACCESS_URL: "${CODER_WILDCARD_ACCESS_URL:-}"
+      CODER_DANGEROUS_ALLOW_PATH_APP_SHARING: "true"
+    group_add:
+      - "${DOCKER_GID:-113}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - coder_home:/home/coder
+    depends_on:
+      coder-database:
+        condition: service_healthy
+    restart: unless-stopped
+
+  coder-database:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-username}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-coder}
+    volumes:
+      - coder_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-username} -d ${POSTGRES_DB:-coder}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  bugfarm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bugfarm-poc:local
+    restart: unless-stopped
+    env_file:
+      - ${BUGFARM_ENV_FILE:-.env.vm}
+    environment:
+      PORT: "3000"
+      ASSESSMENT_OUTPUT_DIR: /var/lib/bugfarm/artifacts
+      DATABASE_PATH: /var/lib/bugfarm/bugfarm.sqlite
+      PUBLIC_BACKEND_URL: "${PUBLIC_BACKEND_URL}"
+      CODER_URL: "${CODER_ACCESS_URL}"
+      CODER_API_URL: "${CODER_API_URL:-http://host.docker.internal:7080}"
+      CODER_ORGANIZATION_ID: "${CODER_ORGANIZATION_ID:-}"
+      CODER_TEMPLATE_ID: "${CODER_TEMPLATE_ID:-}"
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/var/lib/bugfarm
+    depends_on:
+      - coder
+
+volumes:
+  coder_data:
+  coder_home:

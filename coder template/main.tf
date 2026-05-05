@@ -58,6 +58,8 @@ resource "coder_agent" "main" {
 
     PROJECT_DIR=/home/coder/project
     ARTIFACT_ZIP=/tmp/artifact.zip
+    CLINE_DIR=/home/coder/.cline
+    export CLINE_DIR
 
     if ! command -v curl >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then
       echo "Installing curl and unzip..."
@@ -103,9 +105,10 @@ EOF
     PLATFORM_URL_NORMALIZED=$(printf '%s' "$PLATFORM_URL" | sed 's:/*$::')
     AI_PROXY_URL_NORMALIZED="$PLATFORM_URL_NORMALIZED/v1"
 
-    mkdir -p /home/coder/.cline/data
-    cat > /home/coder/.cline/data/globalState.json <<EOF
+    mkdir -p "$CLINE_DIR/data"
+    cat > "$CLINE_DIR/data/globalState.json" <<EOF
 {
+  "__vscodeMigrationVersion": 1,
   "apiProvider": "openai",
   "apiModelId": "bugfarm-ai",
   "openAiBaseUrl": "$AI_PROXY_URL_NORMALIZED",
@@ -142,13 +145,13 @@ EOF
   }
 }
 EOF
-    cat > /home/coder/.cline/data/secrets.json <<EOF
+    cat > "$CLINE_DIR/data/secrets.json" <<EOF
 {
   "openAiApiKey": "$AI_PROXY_TOKEN"
 }
 EOF
-    chmod 600 /home/coder/.cline/data/secrets.json
-    sudo chown -R coder:coder /home/coder/.cline
+    chmod 600 "$CLINE_DIR/data/secrets.json"
+    sudo chown -R coder:coder "$CLINE_DIR"
 
     cat > /home/coder/.bugfarm-ai.env <<EOF
 export AI_PROXY_URL="$AI_PROXY_URL_NORMALIZED"
@@ -279,6 +282,7 @@ resource "docker_container" "workspace" {
     "ARTIFACT_TOKEN=${data.coder_parameter.artifact_token.value}",
     "AI_PROXY_TOKEN=${data.coder_parameter.ai_proxy_token.value}",
     "AI_PROXY_URL=${trimsuffix(var.platform_url, "/")}/v1",
+    "CLINE_DIR=/home/coder/.cline",
   ]
 
   host {

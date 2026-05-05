@@ -63,6 +63,39 @@ npm test
 
 `npm test` builds the project and runs the local deterministic hidden-test validator suite.
 
+## VM Compose Startup
+
+For the single-VM Coder plus backend setup, use the global compose file and
+bootstrap script:
+
+```bash
+cp .env.vm.example .env.vm
+```
+
+Edit `.env.vm` with:
+
+- `CODER_ACCESS_URL`: public Coder URL, for example an ngrok URL.
+- `PUBLIC_BACKEND_URL`: public backend URL, for example an OutRay URL.
+- `CODER_API_TOKEN`: admin Coder API token.
+- `CURSOR_API_KEY`, `AI_UPSTREAM_API_KEY`, and `AI_UPSTREAM_MODEL`.
+
+For a fresh Coder database, start only Coder first, create the admin user in the
+browser, create an API token, and put it in `.env.vm`:
+
+```bash
+docker compose --env-file .env.vm -f compose.vm.yaml up -d coder-database coder
+```
+
+Then run:
+
+```bash
+./scripts/vm-up.sh
+```
+
+The script starts Coder, pushes `coder template` with `platform_url`, discovers
+the Coder organization/template IDs, writes them back into `.env.vm`, and starts
+the backend. Backend data and generated artifacts are stored under `./data`.
+
 ## API
 
 Interactive API docs are available through Scalar:
