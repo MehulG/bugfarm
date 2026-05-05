@@ -237,6 +237,25 @@ if isinstance(data, dict):
 else:
     rows = data
 for row in rows:
+    candidate = row.get("Template") if isinstance(row, dict) and isinstance(row.get("Template"), dict) else row
+    if candidate.get("name") == name:
+        value = candidate.get("id") or candidate.get("template_id")
+        if value:
+            print(value)
+            raise SystemExit(0)
+raise SystemExit(1)
+' 2>/dev/null || true
+)
+
+if [ -z "$CODER_TEMPLATE_ID" ]; then
+  CODER_TEMPLATE_ID=$(
+    curl -fsS "$CODER_CLI_URL/api/v2/templates" \
+      -H "Coder-Session-Token: $CODER_API_TOKEN" | python3 -c '
+import json, os, sys
+name = os.environ["CODER_TEMPLATE_NAME"]
+data = json.load(sys.stdin)
+rows = data if isinstance(data, list) else data.get("templates") or data.get("data") or data.get("rows") or []
+for row in rows:
     if row.get("name") == name:
         value = row.get("id") or row.get("template_id")
         if value:
@@ -244,7 +263,8 @@ for row in rows:
             raise SystemExit(0)
 raise SystemExit(1)
 ' 2>/dev/null || true
-)
+  )
+fi
 
 if [ -z "$CODER_TEMPLATE_ID" ]; then
   echo "Could not discover Coder template ID for $CODER_TEMPLATE_NAME." >&2
