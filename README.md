@@ -90,7 +90,9 @@ It also imports `CURSOR_API_KEY`, `AI_UPSTREAM_API_KEY`, and
 
 The script starts Coder, pushes `coder template` with `platform_url`, discovers
 the Coder organization/template IDs, writes them back into `.env.vm`, and starts
-the backend. Backend data and generated artifacts are stored under `./data`.
+the backend. It also fixes ownership on `./data` for the container runtime user
+before starting BugFarm. Backend data and generated artifacts are stored under
+`./data`.
 
 ## API
 
