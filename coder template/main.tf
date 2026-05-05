@@ -76,7 +76,8 @@ EOF
       rm -rf "$PROJECT_DIR"
       mkdir -p "$PROJECT_DIR"
 
-      ARTIFACT_URL="$PLATFORM_URL/api/artifacts/$ARTIFACT_HASH.zip?session_id=$ASSESSMENT_SESSION_ID"
+      PLATFORM_URL_NORMALIZED=$(printf '%s' "$PLATFORM_URL" | sed 's:/*$::')
+      ARTIFACT_URL="$PLATFORM_URL_NORMALIZED/api/artifacts/$ARTIFACT_HASH.zip?session_id=$ASSESSMENT_SESSION_ID"
 
       if ! curl -fsSL \
         -H "Authorization: Bearer $ARTIFACT_TOKEN" \
@@ -107,7 +108,7 @@ resource "coder_app" "code_server" {
   display_name = "code-server"
   url          = "http://localhost:13337/"
   subdomain    = false
-  share        = "owner"
+  share        = "public"
 
   healthcheck {
     url       = "http://localhost:13337/healthz"

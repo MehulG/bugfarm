@@ -19,7 +19,6 @@ import {
   handleArtifactDownload,
   handleCandidateLaunch,
   handleCandidateLaunchStatus,
-  handleCandidatePasswordReset,
 } from "./candidate/flow.js";
 
 export function createServer(): express.Express {
@@ -62,16 +61,6 @@ export function createServer(): express.Express {
       const message = error instanceof Error ? error.message : "Unknown candidate launch status error";
       logger.error("Failed to check candidate workspace status", { message });
       res.status(500).json({ status: "failed", message });
-    }
-  });
-
-  app.post("/candidate/launch/:launchToken/reset-password", async (req, res) => {
-    try {
-      await handleCandidatePasswordReset(req, res);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown password reset error";
-      logger.error("Failed to reset candidate password", { message });
-      res.status(500).json({ status: "error", message });
     }
   });
 

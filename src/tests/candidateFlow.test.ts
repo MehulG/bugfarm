@@ -131,17 +131,19 @@ test("candidate launch is idempotent after workspace provisioning", async () => 
   });
   const coder = new FakeCoder();
 
+  const firstResponse = mockResponse();
   await handleCandidateLaunchStatus(
     mockRequest(created.launchToken),
-    mockResponse(),
+    firstResponse as never,
     {
       store,
       coder,
     },
   );
+  const secondResponse = mockResponse();
   await handleCandidateLaunchStatus(
     mockRequest(created.launchToken),
-    mockResponse(),
+    secondResponse as never,
     {
       store,
       coder,
@@ -150,7 +152,20 @@ test("candidate launch is idempotent after workspace provisioning", async () => 
 
   assert.equal(coder.createUserCalls, 1);
   assert.equal(coder.createWorkspaceCalls, 1);
+  assertNoCandidateCredentials(firstResponse.jsonBody);
+  assertNoCandidateCredentials(secondResponse.jsonBody);
 });
+
+function assertNoCandidateCredentials(value: unknown): void {
+  assert(value && typeof value === "object");
+  const body = value as Record<string, unknown>;
+  assert.equal("coderUsername" in body, false);
+  assert.equal("coderEmail" in body, false);
+  assert.equal("coderPassword" in body, false);
+  assert.equal(body.status, "ready");
+  assert.equal(typeof body.codeServerUrl, "string");
+  assert.match(body.codeServerUrl as string, /^https:\/\/coder\.example\.com\/@candidate-[a-z0-9]+\/assess-[a-z0-9]+\.main\/apps\/code-server\/$/);
+}
 
 function jsonResponse(value: unknown): Response {
   return new Response(JSON.stringify(value), {
@@ -171,6 +186,7 @@ function mockResponse() {
   const response = {
     statusCode: 200,
     headers: {} as Record<string, string>,
+    jsonBody: undefined as unknown,
     status(code: number) {
       this.statusCode = code;
       return this;
@@ -181,12 +197,13 @@ function mockResponse() {
     send(_body: unknown) {
       return this;
     },
-    json(_body: unknown) {
+    json(body: unknown) {
+      this.jsonBody = body;
       return this;
     },
   };
 
-  return response as never;
+  return response;
 }
 
 class FakeCoder {

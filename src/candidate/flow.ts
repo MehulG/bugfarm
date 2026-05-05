@@ -16,7 +16,6 @@ export type CandidateCoder = Pick<
   CoderClient,
   | "createUser"
   | "createWorkspace"
-  | "updateUserPassword"
   | "workspaceUrl"
   | "codeServerUrl"
   | "getWorkspaceReadiness"
@@ -103,9 +102,6 @@ export async function handleCandidateLaunchStatus(
   res.json({
     status: readiness.status,
     message: readiness.message,
-    coderUsername: provisioned.record.coderUsername,
-    coderEmail: `${provisioned.record.coderUsername}@bugfarm.local`,
-    coderPassword: provisioned.coderPassword,
     workspaceUrl: provisioned.coder.workspaceUrl(
       provisioned.record.coderUsername!,
       provisioned.record.coderWorkspaceName!,
@@ -121,7 +117,6 @@ async function ensureCandidateWorkspace(input: {
 }): Promise<{
   record: CandidateSessionRecord;
   coder: CandidateCoder;
-  coderPassword?: string;
 }> {
   if (
     input.record.status === "provisioned" &&
@@ -177,58 +172,11 @@ async function ensureCandidateWorkspace(input: {
         coderWorkspaceName: workspace.name,
       },
       coder,
-      coderPassword,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown Coder provisioning error";
     await store.markFailed(input.record.sessionId, message);
     throw error;
-  }
-}
-
-export async function handleCandidatePasswordReset(
-  req: Request,
-  res: Response,
-  options: {
-    store?: CandidateSessionStore;
-    coder?: CandidateCoder;
-  } = {},
-): Promise<void> {
-  const store = options.store ?? candidateSessionStore;
-  const launchToken = req.params.launchToken;
-  const record = await store.findByLaunchToken(launchToken);
-
-  if (!record || isExpired(record)) {
-    res.status(404).send(renderMessagePage("Invalid assessment link", "This assessment link is invalid or expired."));
-    return;
-  }
-
-  if (!record.coderUsername || !record.coderWorkspaceName) {
-    res.status(400).send(renderMessagePage("Workspace not ready", "Open the launch link first to create the workspace."));
-    return;
-  }
-
-  const coder = options.coder ?? new CoderClient();
-  const coderPassword = createSecretToken(18);
-
-  try {
-    await coder.updateUserPassword({
-      username: record.coderUsername,
-      password: coderPassword,
-    });
-    await store.resetCoderPassword({ sessionId: record.sessionId });
-    res.send(
-      renderLaunchPage({
-        title: "Coder password reset",
-        record,
-        workspaceUrl: coder.workspaceUrl(record.coderUsername, record.coderWorkspaceName),
-        coderPassword,
-        launchToken,
-      }),
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown Coder password reset error";
-    res.status(500).send(renderMessagePage("Password reset failed", message));
   }
 }
 
@@ -294,40 +242,6 @@ function isExpired(record: CandidateSessionRecord): boolean {
   return Date.parse(record.expiresAt) <= Date.now();
 }
 
-function renderLaunchPage(input: {
-  title: string;
-  record: CandidateSessionRecord;
-  workspaceUrl: string;
-  coderPassword?: string;
-  launchToken: string;
-}): string {
-  const username = input.record.coderUsername || "";
-
-  return renderPage(
-    input.title,
-    `
-      <main>
-        <h1>${escapeHtml(input.title)}</h1>
-        <p>Your Coder workspace is ready.</p>
-        <dl>
-          <dt>Username</dt>
-          <dd><code>${escapeHtml(username)}</code></dd>
-          ${
-            input.coderPassword
-              ? `<dt>Password</dt><dd><code>${escapeHtml(input.coderPassword)}</code></dd>`
-              : `<dt>Password</dt><dd>Use the password you were shown earlier, or reset it below.</dd>`
-          }
-        </dl>
-        <p><a class="button" href="${escapeHtml(input.workspaceUrl)}">Open Coder Workspace</a></p>
-        <form method="post" action="/candidate/launch/${escapeHtml(input.launchToken)}/reset-password">
-          <button class="secondary" type="submit">Reset Coder Password</button>
-          <p class="note">Use this only if the displayed password was lost or has expired.</p>
-        </form>
-      </main>
-    `,
-  );
-}
-
 function renderLaunchLoaderPage(input: { launchToken: string }): string {
   const statusUrl = `/candidate/launch/${escapeHtml(input.launchToken)}/status`;
 
@@ -338,22 +252,10 @@ function renderLaunchLoaderPage(input: { launchToken: string }): string {
         <div class="spinner" aria-hidden="true"></div>
         <h1>Starting assessment workspace</h1>
         <p id="status-message">Creating your Coder workspace...</p>
-        <section id="credentials" class="credentials" hidden>
-          <p>If Coder asks you to sign in, use these credentials:</p>
-          <dl>
-            <dt>Email</dt>
-            <dd><code id="coder-email"></code></dd>
-            <dt>Password</dt>
-            <dd><code id="coder-password"></code></dd>
-          </dl>
-        </section>
         <p id="manual-open" hidden><a class="button" id="code-server-link" href="#">Open code-server</a></p>
       </main>
       <script>
         const statusMessage = document.getElementById("status-message");
-        const credentials = document.getElementById("credentials");
-        const coderEmail = document.getElementById("coder-email");
-        const coderPassword = document.getElementById("coder-password");
         const manualOpen = document.getElementById("manual-open");
         const codeServerLink = document.getElementById("code-server-link");
         let redirectScheduled = false;
@@ -370,12 +272,6 @@ function renderLaunchLoaderPage(input: { launchToken: string }): string {
               return;
             }
 
-            if (body.coderEmail && body.coderPassword) {
-              credentials.hidden = false;
-              coderEmail.textContent = body.coderEmail;
-              coderPassword.textContent = body.coderPassword;
-            }
-
             if (body.codeServerUrl) {
               codeServerLink.href = body.codeServerUrl;
               manualOpen.hidden = false;
@@ -387,7 +283,7 @@ function renderLaunchLoaderPage(input: { launchToken: string }): string {
                 redirectScheduled = true;
                 setTimeout(() => {
                   window.location.href = body.codeServerUrl;
-                }, body.coderPassword ? 6000 : 250);
+                }, 250);
               }
               return;
             }
@@ -438,7 +334,6 @@ function renderPage(title: string, body: string): string {
     .button { display: inline-block; background: #2563eb; color: white; padding: 10px 14px; border-radius: 6px; text-decoration: none; }
     button.secondary { background: #1f2937; color: #f9fafb; border: 1px solid #374151; border-radius: 6px; padding: 10px 14px; }
     .note { font-size: 14px; color: #9ca3af; }
-    .credentials { border: 1px solid #374151; border-radius: 8px; padding: 16px; background: #0f172a; }
     .spinner { width: 32px; height: 32px; border: 3px solid #374151; border-top-color: #60a5fa; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>

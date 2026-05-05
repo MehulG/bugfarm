@@ -5,6 +5,9 @@ On first startup, the workspace downloads the artifact, extracts it into
 `/home/coder/project`, creates `/home/coder/project/.artifact_ready`, and starts
 code-server opened at `/home/coder/project`.
 
+The code-server Coder app is shared publicly so candidate launch links can
+redirect to code-server without requiring a separate Coder login.
+
 On later restarts, the startup script sees `.artifact_ready` and skips the
 download/extract step so the candidate's work is preserved.
 

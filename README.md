@@ -352,10 +352,12 @@ expiring secret link. On first open, the backend:
 2. Creates a Coder workspace from `CODER_TEMPLATE_ID`.
 3. Passes the template parameters `artifact_hash`, `session_id`, and
    `artifact_token`.
-4. Shows a simple page with the Coder username, generated password, and
-   workspace link.
+4. Shows a loader while the workspace and code-server app become healthy.
+5. Redirects directly to the public code-server app URL.
 
-Candidate browser auto-login to Coder is not implemented in v1.
+The candidate never sees Coder credentials and should not need to log into
+Coder. The code-server app is exposed as a public Coder app, so anyone with the
+final app URL can access it while the workspace is running.
 
 ### Candidate Artifact Download
 
