@@ -92,6 +92,7 @@ test("Coder client sends user and workspace creation request shapes", async () =
       artifactHash: "assessment-123",
       sessionId: "session-123",
       artifactToken: "artifact-token",
+      aiProxyToken: "ai-proxy-token",
     });
   } finally {
     globalThis.fetch = originalFetch;
@@ -119,6 +120,7 @@ test("Coder client sends user and workspace creation request shapes", async () =
       { name: "artifact_hash", value: "assessment-123" },
       { name: "session_id", value: "session-123" },
       { name: "artifact_token", value: "artifact-token" },
+      { name: "ai_proxy_token", value: "ai-proxy-token" },
     ],
   });
 });
@@ -162,6 +164,7 @@ function assertNoCandidateCredentials(value: unknown): void {
   assert.equal("coderUsername" in body, false);
   assert.equal("coderEmail" in body, false);
   assert.equal("coderPassword" in body, false);
+  assert.equal("aiProxyToken" in body, false);
   assert.equal(body.status, "ready");
   assert.equal(typeof body.codeServerUrl, "string");
   assert.match(body.codeServerUrl as string, /^https:\/\/coder\.example\.com\/@candidate-[a-z0-9]+\/assess-[a-z0-9]+\.main\/apps\/code-server\/$/);

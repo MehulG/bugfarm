@@ -60,6 +60,7 @@ export class CoderClient {
     artifactHash: string;
     sessionId: string;
     artifactToken: string;
+    aiProxyToken: string;
   }): Promise<CoderWorkspace> {
     const body = await this.request<{ id: string; name: string }>(
       `/api/v2/users/${encodeURIComponent(input.username)}/workspaces`,
@@ -82,6 +83,10 @@ export class CoderClient {
             {
               name: "artifact_token",
               value: input.artifactToken,
+            },
+            {
+              name: "ai_proxy_token",
+              value: input.aiProxyToken,
             },
           ],
         },

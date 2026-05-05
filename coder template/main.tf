@@ -37,6 +37,13 @@ data "coder_parameter" "artifact_token" {
   mutable      = false
 }
 
+data "coder_parameter" "ai_proxy_token" {
+  name         = "ai_proxy_token"
+  display_name = "AI Proxy Token"
+  type         = "string"
+  mutable      = false
+}
+
 data "coder_workspace" "me" {}
 
 data "coder_workspace_owner" "me" {}
@@ -63,11 +70,36 @@ resource "coder_agent" "main" {
       curl -fsSL https://code-server.dev/install.sh | sh
     fi
 
+    if ! code-server --list-extensions | grep -qi '^continue.continue$'; then
+      echo "Installing Continue extension..."
+      code-server --install-extension Continue.continue
+    fi
+
     mkdir -p /home/coder/.config/code-server
     cat > /home/coder/.config/code-server/config.yaml <<EOF
 bind-addr: 127.0.0.1:13337
 auth: none
 cert: false
+EOF
+
+    PLATFORM_URL_NORMALIZED=$(printf '%s' "$PLATFORM_URL" | sed 's:/*$::')
+    AI_PROXY_URL_NORMALIZED="$PLATFORM_URL_NORMALIZED/v1"
+
+    mkdir -p /home/coder/.continue
+    cat > /home/coder/.continue/config.yaml <<EOF
+name: BugFarm Candidate AI
+version: 0.0.1
+schema: v1
+models:
+  - name: bugfarm-ai
+    provider: openai
+    model: bugfarm-ai
+    apiBase: $AI_PROXY_URL_NORMALIZED
+    apiKey: $AI_PROXY_TOKEN
+    roles:
+      - chat
+      - edit
+      - apply
 EOF
 
     if [ ! -f "$PROJECT_DIR/.artifact_ready" ]; then
@@ -76,7 +108,6 @@ EOF
       rm -rf "$PROJECT_DIR"
       mkdir -p "$PROJECT_DIR"
 
-      PLATFORM_URL_NORMALIZED=$(printf '%s' "$PLATFORM_URL" | sed 's:/*$::')
       ARTIFACT_URL="$PLATFORM_URL_NORMALIZED/api/artifacts/$ARTIFACT_HASH.zip?session_id=$ASSESSMENT_SESSION_ID"
 
       if ! curl -fsSL \
@@ -142,6 +173,8 @@ resource "docker_container" "workspace" {
     "ARTIFACT_HASH=${data.coder_parameter.artifact_hash.value}",
     "ASSESSMENT_SESSION_ID=${data.coder_parameter.session_id.value}",
     "ARTIFACT_TOKEN=${data.coder_parameter.artifact_token.value}",
+    "AI_PROXY_TOKEN=${data.coder_parameter.ai_proxy_token.value}",
+    "AI_PROXY_URL=${trimsuffix(var.platform_url, "/")}/v1",
   ]
 
   host {

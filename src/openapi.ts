@@ -43,6 +43,80 @@ export const openApiDocument = {
         },
       },
     },
+    "/v1/models": {
+      get: {
+        summary: "List candidate AI proxy models",
+        operationId: "listAiProxyModels",
+        description:
+          "Returns the public model alias exposed to candidate workspaces. Requires a session-scoped AI proxy bearer token.",
+        security: [{ aiProxyBearer: [] }],
+        responses: {
+          "200": {
+            description: "Model list",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["object", "data"],
+                  properties: {
+                    object: { type: "string", const: "list" },
+                    data: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        required: ["id", "object"],
+                        properties: {
+                          id: { type: "string" },
+                          object: { type: "string", const: "model" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": { description: "Missing AI proxy token" },
+          "403": { description: "Invalid, inactive, expired, or disabled AI proxy token" },
+        },
+      },
+    },
+    "/v1/chat/completions": {
+      post: {
+        summary: "Proxy candidate AI chat completions",
+        operationId: "proxyAiChatCompletions",
+        description:
+          "OpenAI-compatible chat completions proxy for candidate workspaces. The backend validates the scoped token, enforces quota, overrides the requested model, forwards to the configured upstream, and records an audit transcript.",
+        security: [{ aiProxyBearer: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                additionalProperties: true,
+                required: ["messages"],
+                properties: {
+                  model: { type: "string" },
+                  messages: { type: "array", items: { type: "object", additionalProperties: true } },
+                  stream: { type: "boolean" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Upstream chat completion response",
+          },
+          "401": { description: "Missing AI proxy token" },
+          "403": { description: "Invalid, inactive, expired, or disabled AI proxy token" },
+          "429": { description: "AI proxy quota exceeded" },
+          "502": { description: "Upstream AI provider request failed" },
+          "503": { description: "AI upstream provider is not configured" },
+        },
+      },
+    },
     "/seed-bug": {
       post: {
         summary: "Seed a bug into a repository",
@@ -499,6 +573,13 @@ export const openApiDocument = {
     },
   },
   components: {
+    securitySchemes: {
+      aiProxyBearer: {
+        type: "http",
+        scheme: "bearer",
+        description: "Session-scoped AI proxy token generated per candidate workspace.",
+      },
+    },
     schemas: {
       JobAcceptedResponse: {
         type: "object",

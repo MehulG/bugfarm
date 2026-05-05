@@ -7,6 +7,9 @@ code-server opened at `/home/coder/project`.
 
 The code-server Coder app is shared publicly so candidate launch links can
 redirect to code-server without requiring a separate Coder login.
+The workspace also installs the Continue extension and configures it to use the
+BugFarm backend AI proxy. Real provider API keys are never written into the
+workspace.
 
 On later restarts, the startup script sees `.artifact_ready` and skips the
 download/extract step so the candidate's work is preserved.
@@ -18,6 +21,7 @@ The backend should create the Coder workspace with these immutable parameters:
 - `artifact_hash`: artifact identifier used in the artifact download URL.
 - `session_id`: assessment session ID passed as a query parameter.
 - `artifact_token`: bearer token used to download the artifact.
+- `ai_proxy_token`: bearer token used by Continue to call the backend AI proxy.
 
 The template admin must also configure:
 
@@ -49,16 +53,21 @@ artifact_hash = abc123
 
 ## Token Security
 
-`artifact_token` is passed into the workspace as an environment variable. That
-means the candidate can read it from inside the workspace, even if it is marked
-sensitive in Terraform or hidden in the Coder UI.
+`artifact_token` and `ai_proxy_token` are passed into the workspace as
+environment variables. That means the candidate can read them from inside the
+workspace, even if they are marked sensitive in Terraform or hidden in the Coder
+UI.
 
-Use only artifact download tokens that are:
+Use only scoped tokens that are:
 
 - Short-lived.
 - Single-use or session-scoped.
-- Restricted to the requested artifact and assessment session.
+- Restricted to the requested artifact or AI proxy session.
 - Never admin tokens, backend service tokens, or broad API tokens.
+
+The `ai_proxy_token` must never be a provider key. It should only authorize the
+workspace to call the backend's OpenAI-compatible `/v1` proxy for that candidate
+session.
 
 ## Startup Flow
 
@@ -73,9 +82,11 @@ Coder template downloads artifact zip on first startup
         ↓
 Workspace extracts files into /home/coder/project
         ↓
+Workspace installs Continue and writes ~/.continue/config.yaml
+        ↓
 Candidate opens code-server
         ↓
-Bugged repo is already visible
+Bugged repo and AI chat/edit are already available
 ```
 
 ## Validation
@@ -92,5 +103,7 @@ token. Verify:
 
 - `/home/coder/project/.artifact_ready` exists after first startup.
 - The artifact files are visible in code-server.
+- Continue is installed and `~/.continue/config.yaml` points to the backend `/v1`
+  proxy with the scoped token.
 - Candidate-created files remain after workspace restart.
 - Invalid tokens and missing artifacts produce clear startup log failures.

@@ -20,6 +20,7 @@ import {
   handleCandidateLaunch,
   handleCandidateLaunchStatus,
 } from "./candidate/flow.js";
+import { handleAiChatCompletions, handleAiModels } from "./ai/proxy.js";
 
 export function createServer(): express.Express {
   const app = express();
@@ -71,6 +72,26 @@ export function createServer(): express.Express {
       const message = error instanceof Error ? error.message : "Unknown artifact download error";
       logger.error("Failed to download candidate artifact", { message });
       res.status(500).json({ status: "error", message });
+    }
+  });
+
+  app.get("/v1/models", async (req, res) => {
+    try {
+      await handleAiModels(req, res);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown AI proxy error";
+      logger.error("Failed to list AI proxy models", { message });
+      res.status(500).json({ error: { message } });
+    }
+  });
+
+  app.post("/v1/chat/completions", async (req, res) => {
+    try {
+      await handleAiChatCompletions(req, res);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown AI proxy error";
+      logger.error("Failed to proxy AI chat completion", { message });
+      res.status(500).json({ error: { message } });
     }
   });
 

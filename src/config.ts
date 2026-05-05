@@ -17,6 +17,12 @@ export type AppConfig = {
   coderOrganizationId?: string;
   coderTemplateId?: string;
   coderWorkspaceTtlMs: number;
+  aiProxyEnabled: boolean;
+  aiUpstreamBaseUrl: string;
+  aiUpstreamApiKey?: string;
+  aiUpstreamModel?: string;
+  aiPublicModelName: string;
+  aiSessionRequestLimit: number;
 };
 
 function numberFromEnv(name: string, fallback: number): number {
@@ -27,6 +33,15 @@ function numberFromEnv(name: string, fallback: number): number {
 
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function booleanFromEnv(name: string, fallback: boolean): boolean {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  return ["1", "true", "yes", "on"].includes(raw.toLowerCase());
 }
 
 export const config: AppConfig = {
@@ -44,4 +59,10 @@ export const config: AppConfig = {
   coderOrganizationId: process.env.CODER_ORGANIZATION_ID,
   coderTemplateId: process.env.CODER_TEMPLATE_ID,
   coderWorkspaceTtlMs: numberFromEnv("CODER_WORKSPACE_TTL_MS", 14_400_000),
+  aiProxyEnabled: booleanFromEnv("AI_PROXY_ENABLED", true),
+  aiUpstreamBaseUrl: process.env.AI_UPSTREAM_BASE_URL || "https://api.openai.com/v1",
+  aiUpstreamApiKey: process.env.AI_UPSTREAM_API_KEY,
+  aiUpstreamModel: process.env.AI_UPSTREAM_MODEL,
+  aiPublicModelName: process.env.AI_PUBLIC_MODEL_NAME || "bugfarm-ai",
+  aiSessionRequestLimit: numberFromEnv("AI_SESSION_REQUEST_LIMIT", 100),
 };

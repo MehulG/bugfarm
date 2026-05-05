@@ -136,6 +136,7 @@ async function ensureCandidateWorkspace(input: {
   const coderWorkspaceName = store.makeWorkspaceName(input.record.sessionId);
   const coderPassword = createSecretToken(18);
   const artifactToken = createSecretToken(32);
+  const aiProxyToken = createSecretToken(32);
 
   try {
     const user = await coder.createUser({
@@ -150,11 +151,13 @@ async function ensureCandidateWorkspace(input: {
       artifactHash: input.record.artifactHash,
       sessionId: input.record.sessionId,
       artifactToken,
+      aiProxyToken,
     });
 
     await store.markProvisioned({
       sessionId: input.record.sessionId,
       artifactTokenHash: hashToken(artifactToken),
+      aiTokenHash: hashToken(aiProxyToken),
       coderUserId: user.id,
       coderUsername: user.username,
       coderWorkspaceId: workspace.id,
@@ -166,6 +169,7 @@ async function ensureCandidateWorkspace(input: {
         ...input.record,
         status: "provisioned",
         artifactTokenHash: hashToken(artifactToken),
+        aiTokenHash: hashToken(aiProxyToken),
         coderUserId: user.id,
         coderUsername: user.username,
         coderWorkspaceId: workspace.id,

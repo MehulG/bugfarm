@@ -38,6 +38,12 @@ CODER_API_TOKEN=your_coder_api_token_here
 CODER_ORGANIZATION_ID=your_coder_organization_id_here
 CODER_TEMPLATE_ID=your_coder_template_id_here
 CODER_WORKSPACE_TTL_MS=14400000
+AI_PROXY_ENABLED=true
+AI_UPSTREAM_BASE_URL=https://api.openai.com/v1
+AI_UPSTREAM_API_KEY=your_ai_provider_api_key_here
+AI_UPSTREAM_MODEL=your_ai_model_here
+AI_PUBLIC_MODEL_NAME=bugfarm-ai
+AI_SESSION_REQUEST_LIMIT=100
 ```
 
 ## Scripts
@@ -214,6 +220,35 @@ workspace for the candidate.
 `CODER_URL` is the browser-facing Coder URL shown to candidates. `CODER_API_URL`
 is the backend-to-Coder URL used from inside Docker; when Coder runs on the same
 VM as the backend container, set it to `http://host.docker.internal:7080`.
+
+### Candidate AI Proxy
+
+Candidate workspaces can use Continue inside code-server through BugFarm's
+OpenAI-compatible proxy:
+
+```http
+GET /v1/models
+POST /v1/chat/completions
+Authorization: Bearer <ai_proxy_token>
+```
+
+The backend generates one `ai_proxy_token` per candidate session, stores only
+its hash, and passes the raw token into the Coder workspace. Continue uses that
+token as its API key and points at `PUBLIC_BACKEND_URL/v1`.
+
+Real provider credentials must stay only in the backend environment:
+
+```env
+AI_UPSTREAM_BASE_URL=https://api.openai.com/v1
+AI_UPSTREAM_API_KEY=...
+AI_UPSTREAM_MODEL=...
+AI_PUBLIC_MODEL_NAME=bugfarm-ai
+AI_SESSION_REQUEST_LIMIT=100
+```
+
+The proxy overrides candidate-supplied model names with `AI_UPSTREAM_MODEL`,
+enforces session expiry/status and request quota, and stores full request and
+response transcripts in SQLite for audit/debugging.
 
 ### Generate Bug
 
