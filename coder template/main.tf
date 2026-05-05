@@ -72,7 +72,25 @@ resource "coder_agent" "main" {
 
     if ! code-server --list-extensions | grep -qi '^saoudrizwan.claude-dev$'; then
       echo "Installing Cline extension..."
-      code-server --install-extension saoudrizwan.claude-dev
+      CLINE_PACKAGE=/tmp/cline-package
+      CLINE_VSIX=/tmp/cline.vsix
+      curl -fsSL \
+        -H "Accept: application/octet-stream" \
+        -H "User-Agent: Mozilla/5.0" \
+        "https://saoudrizwan.gallery.vsassets.io/_apis/public/gallery/publisher/saoudrizwan/extension/claude-dev/latest/assetbyname/Microsoft.VisualStudio.Services.VSIXPackage" \
+        -o "$CLINE_PACKAGE"
+      if gzip -t "$CLINE_PACKAGE" >/dev/null 2>&1; then
+        mv "$CLINE_PACKAGE" "$CLINE_VSIX.gz"
+        gunzip -f "$CLINE_VSIX.gz"
+      else
+        mv "$CLINE_PACKAGE" "$CLINE_VSIX"
+      fi
+      code-server --install-extension "$CLINE_VSIX" --force
+    fi
+
+    if ! code-server --list-extensions | grep -qi '^saoudrizwan.claude-dev$'; then
+      echo "Cline extension failed to install" >&2
+      exit 1
     fi
 
     mkdir -p /home/coder/.config/code-server
@@ -85,13 +103,70 @@ EOF
     PLATFORM_URL_NORMALIZED=$(printf '%s' "$PLATFORM_URL" | sed 's:/*$::')
     AI_PROXY_URL_NORMALIZED="$PLATFORM_URL_NORMALIZED/v1"
 
+    mkdir -p /home/coder/.cline/data
+    cat > /home/coder/.cline/data/globalState.json <<EOF
+{
+  "apiProvider": "openai",
+  "apiModelId": "bugfarm-ai",
+  "openAiBaseUrl": "$AI_PROXY_URL_NORMALIZED",
+  "openAiModelId": "bugfarm-ai",
+  "actModeApiProvider": "openai",
+  "planModeApiProvider": "openai",
+  "actModeOpenAiModelId": "bugfarm-ai",
+  "planModeOpenAiModelId": "bugfarm-ai",
+  "actModeThinkingBudgetTokens": 0,
+  "planModeThinkingBudgetTokens": 0,
+  "welcomeViewCompleted": true,
+  "taskHistory": [],
+  "remoteRulesToggles": {},
+  "remoteWorkflowToggles": {},
+  "globalWorkflowToggles": {},
+  "globalClineRulesToggles": {},
+  "isNewUser": false,
+  "autoApprovalSettings": {
+    "version": 19,
+    "enabled": true,
+    "favorites": [],
+    "maxRequests": 20,
+    "actions": {
+      "readFiles": true,
+      "readFilesExternally": false,
+      "editFiles": false,
+      "editFilesExternally": false,
+      "executeSafeCommands": true,
+      "executeAllCommands": false,
+      "useBrowser": false,
+      "useMcp": true
+    },
+    "enableNotifications": false
+  }
+}
+EOF
+    cat > /home/coder/.cline/data/secrets.json <<EOF
+{
+  "openAiApiKey": "$AI_PROXY_TOKEN"
+}
+EOF
+    chmod 600 /home/coder/.cline/data/secrets.json
+    sudo chown -R coder:coder /home/coder/.cline
+
+    cat > /home/coder/.bugfarm-ai.env <<EOF
+export AI_PROXY_URL="$AI_PROXY_URL_NORMALIZED"
+export AI_PROXY_TOKEN="$AI_PROXY_TOKEN"
+EOF
+    if ! grep -q '.bugfarm-ai.env' /home/coder/.profile 2>/dev/null; then
+      cat >> /home/coder/.profile <<'EOF'
+
+if [ -f "$HOME/.bugfarm-ai.env" ]; then
+  . "$HOME/.bugfarm-ai.env"
+fi
+EOF
+    fi
+
     mkdir -p /home/coder/.local/share/code-server/User
     cat > /home/coder/.local/share/code-server/User/settings.json <<EOF
 {
-  "cline.apiProvider": "openai",
-  "cline.openAiBaseUrl": "$AI_PROXY_URL_NORMALIZED",
-  "cline.openAiApiKey": "$AI_PROXY_TOKEN",
-  "cline.apiModelId": "bugfarm-ai"
+  "workbench.startupEditor": "none"
 }
 EOF
 
@@ -105,7 +180,13 @@ if [ -z "$PROMPT" ]; then
   exit 1
 fi
 
-if [ -z "$AI_PROXY_URL" ] || [ -z "$AI_PROXY_TOKEN" ]; then
+if [ -z "${AI_PROXY_URL:-}" ] || [ -z "${AI_PROXY_TOKEN:-}" ]; then
+  if [ -f "$HOME/.bugfarm-ai.env" ]; then
+    . "$HOME/.bugfarm-ai.env"
+  fi
+fi
+
+if [ -z "${AI_PROXY_URL:-}" ] || [ -z "${AI_PROXY_TOKEN:-}" ]; then
   echo "AI proxy is not configured in this workspace" >&2
   exit 1
 fi

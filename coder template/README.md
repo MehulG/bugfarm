@@ -8,8 +8,12 @@ code-server opened at `/home/coder/project`.
 The code-server Coder app is shared publicly so candidate launch links can
 redirect to code-server without requiring a separate Coder login.
 The workspace also installs the Cline extension, configures it to use the
-BugFarm backend AI proxy, and installs a `bugfarm-ai` terminal fallback command.
-Real provider API keys are never written into the workspace.
+BugFarm backend AI proxy, skips Cline onboarding by writing Cline's state files,
+and installs a `bugfarm-ai` terminal fallback command. Real provider API keys
+are never written into the workspace.
+
+If Cline cannot be installed, workspace startup fails before code-server starts.
+That keeps candidate workspaces from opening in a half-configured state.
 
 On later restarts, the startup script sees `.artifact_ready` and skips the
 download/extract step so the candidate's work is preserved.
@@ -82,11 +86,11 @@ Coder template downloads artifact zip on first startup
         ↓
 Workspace extracts files into /home/coder/project
         ↓
-Workspace installs Cline, writes code-server Cline settings, and installs bugfarm-ai
+Workspace installs Cline, writes Cline state/secrets, and installs bugfarm-ai
         ↓
 Candidate opens code-server
         ↓
-Bugged repo and AI assistance are already available
+Bugged repo and Cline AI assistance are already available
 ```
 
 ## Validation
@@ -103,8 +107,12 @@ token. Verify:
 
 - `/home/coder/project/.artifact_ready` exists after first startup.
 - The artifact files are visible in code-server.
-- Cline is installed and code-server user settings point to the backend `/v1`
-  proxy with the scoped token.
+- Cline is installed and `~/.cline/data/globalState.json` points to the backend
+  `/v1` proxy.
+- `~/.cline/data/secrets.json` contains only the scoped AI proxy token, not a
+  real provider API key.
 - `bugfarm-ai "Say hello"` works from the terminal.
+- `AI_ASSISTANT.md` exists in `/home/coder/project` and explains that Cline is
+  preconfigured.
 - Candidate-created files remain after workspace restart.
 - Invalid tokens and missing artifacts produce clear startup log failures.

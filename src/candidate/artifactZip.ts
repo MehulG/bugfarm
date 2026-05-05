@@ -26,6 +26,11 @@ export async function createCandidateRepoZip(artifactPath: string): Promise<Buff
     data: Buffer.from(buildCandidateReadme(task, originalReadme), "utf8"),
     mode: 0o100644,
   });
+  entries.push({
+    name: "AI_ASSISTANT.md",
+    data: Buffer.from(buildAiAssistantReadme(), "utf8"),
+    mode: 0o100644,
+  });
 
   for (const file of await walkFiles(candidateRepoPath)) {
     const relative = toZipPath(path.relative(candidateRepoPath, file));
@@ -52,9 +57,9 @@ function buildCandidateReadme(task?: string, originalReadme?: string): string {
   const parts: string[] = [];
 
   if (task?.trim()) {
-    parts.push(`# Assessment Instructions\n\n${task.trim()}\n`);
+    parts.push(`# Assessment Instructions\n\n${task.trim()}\n\n## AI Assistance\n\nCline is preconfigured in the editor sidebar. You can also use \`bugfarm-ai "your question"\` in the terminal. See \`AI_ASSISTANT.md\` for details.\n`);
   } else {
-    parts.push("# Assessment Instructions\n\nFix the issue in this repository.\n");
+    parts.push("# Assessment Instructions\n\nFix the issue in this repository.\n\n## AI Assistance\n\nCline is preconfigured in the editor sidebar. You can also use `bugfarm-ai \"your question\"` in the terminal. See `AI_ASSISTANT.md` for details.\n");
   }
 
   if (originalReadme?.trim()) {
@@ -62,6 +67,41 @@ function buildCandidateReadme(task?: string, originalReadme?: string): string {
   }
 
   return `${parts.join("\n")}\n`;
+}
+
+function buildAiAssistantReadme(): string {
+  return `# AI Assistant
+
+AI help is available in this workspace without using any personal API key.
+
+## Cline Sidebar
+
+Cline is preconfigured in the left activity bar. Open Cline and start typing
+your question or requested code change.
+
+It uses a session-scoped BugFarm proxy token. The real provider API key is not
+available inside this workspace.
+
+## Terminal Assistant
+
+Use:
+
+\`\`\`sh
+bugfarm-ai "explain this repository"
+bugfarm-ai "where should I start debugging?"
+bugfarm-ai "suggest a patch for the failing behavior"
+\`\`\`
+
+If Cline ever asks for setup again, choose "Bring my own API key" and use:
+
+- Provider: OpenAI Compatible
+- Base URL: value of \`$AI_PROXY_URL\`
+- API key: value of \`$AI_PROXY_TOKEN\`
+- Model ID: \`bugfarm-ai\`
+
+These values are scoped to this assessment workspace. They are not real provider
+API keys.
+`;
 }
 
 async function walkFiles(root: string): Promise<string[]> {
