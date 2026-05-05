@@ -7,9 +7,9 @@ code-server opened at `/home/coder/project`.
 
 The code-server Coder app is shared publicly so candidate launch links can
 redirect to code-server without requiring a separate Coder login.
-The workspace also installs the Continue extension and configures it to use the
-BugFarm backend AI proxy. Real provider API keys are never written into the
-workspace.
+The workspace also installs the Cline extension, configures it to use the
+BugFarm backend AI proxy, and installs a `bugfarm-ai` terminal fallback command.
+Real provider API keys are never written into the workspace.
 
 On later restarts, the startup script sees `.artifact_ready` and skips the
 download/extract step so the candidate's work is preserved.
@@ -21,7 +21,7 @@ The backend should create the Coder workspace with these immutable parameters:
 - `artifact_hash`: artifact identifier used in the artifact download URL.
 - `session_id`: assessment session ID passed as a query parameter.
 - `artifact_token`: bearer token used to download the artifact.
-- `ai_proxy_token`: bearer token used by Continue to call the backend AI proxy.
+- `ai_proxy_token`: bearer token used by Cline and `bugfarm-ai` to call the backend AI proxy.
 
 The template admin must also configure:
 
@@ -82,11 +82,11 @@ Coder template downloads artifact zip on first startup
         ↓
 Workspace extracts files into /home/coder/project
         ↓
-Workspace installs Continue and writes ~/.continue/config.yaml
+Workspace installs Cline, writes code-server Cline settings, and installs bugfarm-ai
         ↓
 Candidate opens code-server
         ↓
-Bugged repo and AI chat/edit are already available
+Bugged repo and AI assistance are already available
 ```
 
 ## Validation
@@ -103,7 +103,8 @@ token. Verify:
 
 - `/home/coder/project/.artifact_ready` exists after first startup.
 - The artifact files are visible in code-server.
-- Continue is installed and `~/.continue/config.yaml` points to the backend `/v1`
+- Cline is installed and code-server user settings point to the backend `/v1`
   proxy with the scoped token.
+- `bugfarm-ai "Say hello"` works from the terminal.
 - Candidate-created files remain after workspace restart.
 - Invalid tokens and missing artifacts produce clear startup log failures.

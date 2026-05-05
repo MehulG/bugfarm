@@ -70,9 +70,9 @@ resource "coder_agent" "main" {
       curl -fsSL https://code-server.dev/install.sh | sh
     fi
 
-    if ! code-server --list-extensions | grep -qi '^continue.continue$'; then
-      echo "Installing Continue extension..."
-      code-server --install-extension Continue.continue
+    if ! code-server --list-extensions | grep -qi '^saoudrizwan.claude-dev$'; then
+      echo "Installing Cline extension..."
+      code-server --install-extension saoudrizwan.claude-dev
     fi
 
     mkdir -p /home/coder/.config/code-server
@@ -85,22 +85,45 @@ EOF
     PLATFORM_URL_NORMALIZED=$(printf '%s' "$PLATFORM_URL" | sed 's:/*$::')
     AI_PROXY_URL_NORMALIZED="$PLATFORM_URL_NORMALIZED/v1"
 
-    mkdir -p /home/coder/.continue
-    cat > /home/coder/.continue/config.yaml <<EOF
-name: BugFarm Candidate AI
-version: 0.0.1
-schema: v1
-models:
-  - name: bugfarm-ai
-    provider: openai
-    model: bugfarm-ai
-    apiBase: $AI_PROXY_URL_NORMALIZED
-    apiKey: $AI_PROXY_TOKEN
-    roles:
-      - chat
-      - edit
-      - apply
+    mkdir -p /home/coder/.local/share/code-server/User
+    cat > /home/coder/.local/share/code-server/User/settings.json <<EOF
+{
+  "cline.apiProvider": "openai",
+  "cline.openAiBaseUrl": "$AI_PROXY_URL_NORMALIZED",
+  "cline.openAiApiKey": "$AI_PROXY_TOKEN",
+  "cline.apiModelId": "bugfarm-ai"
+}
 EOF
+
+    sudo tee /usr/local/bin/bugfarm-ai >/dev/null <<'EOF'
+#!/bin/sh
+set -eu
+
+PROMPT="$*"
+if [ -z "$PROMPT" ]; then
+  echo "Usage: bugfarm-ai \"your question\""
+  exit 1
+fi
+
+if [ -z "$AI_PROXY_URL" ] || [ -z "$AI_PROXY_TOKEN" ]; then
+  echo "AI proxy is not configured in this workspace" >&2
+  exit 1
+fi
+
+if command -v node >/dev/null 2>&1; then
+  BODY=$(PROMPT="$PROMPT" node -e 'const prompt = process.env.PROMPT || ""; process.stdout.write(JSON.stringify({ model: "bugfarm-ai", messages: [{ role: "system", content: "You are helping a candidate debug this repository. Be concise, practical, and do not reveal hidden tests or assessment metadata." }, { role: "user", content: prompt }] }));')
+  RESPONSE=$(curl -sS -H "Authorization: Bearer $AI_PROXY_TOKEN" -H "Content-Type: application/json" "$AI_PROXY_URL/chat/completions" -d "$BODY")
+  printf '%s' "$RESPONSE" | node -e 'let s = ""; process.stdin.on("data", d => s += d); process.stdin.on("end", () => { try { const j = JSON.parse(s); console.log(j.choices?.[0]?.message?.content || s); } catch { console.log(s); } });'
+elif command -v python3 >/dev/null 2>&1; then
+  BODY=$(PROMPT="$PROMPT" python3 -c 'import json, os; print(json.dumps({"model":"bugfarm-ai","messages":[{"role":"system","content":"You are helping a candidate debug this repository. Be concise, practical, and do not reveal hidden tests or assessment metadata."},{"role":"user","content":os.environ.get("PROMPT","")}]}))')
+  RESPONSE=$(curl -sS -H "Authorization: Bearer $AI_PROXY_TOKEN" -H "Content-Type: application/json" "$AI_PROXY_URL/chat/completions" -d "$BODY")
+  printf '%s' "$RESPONSE" | python3 -c 'import json, sys; s=sys.stdin.read(); print(json.loads(s).get("choices",[{}])[0].get("message",{}).get("content",s) if s else "")'
+else
+  echo "bugfarm-ai requires node or python3 in the workspace" >&2
+  exit 1
+fi
+EOF
+    sudo chmod +x /usr/local/bin/bugfarm-ai
 
     if [ ! -f "$PROJECT_DIR/.artifact_ready" ]; then
       echo "Downloading artifact $ARTIFACT_HASH for session $ASSESSMENT_SESSION_ID"

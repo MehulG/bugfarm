@@ -223,8 +223,8 @@ VM as the backend container, set it to `http://host.docker.internal:7080`.
 
 ### Candidate AI Proxy
 
-Candidate workspaces can use Continue inside code-server through BugFarm's
-OpenAI-compatible proxy:
+Candidate workspaces can use Cline inside code-server, or the `bugfarm-ai`
+terminal fallback command, through BugFarm's OpenAI-compatible proxy:
 
 ```http
 GET /v1/models
@@ -233,8 +233,9 @@ Authorization: Bearer <ai_proxy_token>
 ```
 
 The backend generates one `ai_proxy_token` per candidate session, stores only
-its hash, and passes the raw token into the Coder workspace. Continue uses that
-token as its API key and points at `PUBLIC_BACKEND_URL/v1`.
+its hash, and passes the raw token into the Coder workspace. Cline and
+`bugfarm-ai` use that token as their API key and point at
+`PUBLIC_BACKEND_URL/v1`.
 
 Real provider credentials must stay only in the backend environment:
 
