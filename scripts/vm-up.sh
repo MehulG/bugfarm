@@ -201,14 +201,34 @@ coder templates push "$CODER_TEMPLATE_NAME" \
   --var "platform_url=$PUBLIC_BACKEND_URL" \
   --yes
 
-CODER_ORGANIZATION_ID=$(coder organizations show selected --only-id)
+echo "Discovering Coder organization ID..."
+CODER_ORGANIZATION_ID=$(coder organizations show selected --only-id 2>/dev/null || true)
+if [ -z "$CODER_ORGANIZATION_ID" ]; then
+  CODER_ORGANIZATION_ID=$(
+    coder organizations list --output json 2>/dev/null | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+if isinstance(data, dict):
+    rows = data.get("organizations") or data.get("data") or data.get("rows") or []
+else:
+    rows = data
+for row in rows:
+    value = row.get("id") or row.get("organization_id")
+    if value:
+        print(value)
+        raise SystemExit(0)
+raise SystemExit(1)
+' 2>/dev/null || true
+  )
+fi
 if [ -z "$CODER_ORGANIZATION_ID" ]; then
   echo "Could not discover Coder organization ID." >&2
   exit 1
 fi
 
+echo "Discovering Coder template ID..."
 CODER_TEMPLATE_ID=$(
-  coder templates list --output json | python3 -c '
+  coder templates list --output json 2>/dev/null | python3 -c '
 import json, os, sys
 name = os.environ["CODER_TEMPLATE_NAME"]
 data = json.load(sys.stdin)
@@ -223,7 +243,7 @@ for row in rows:
             print(value)
             raise SystemExit(0)
 raise SystemExit(1)
-'
+' 2>/dev/null || true
 )
 
 if [ -z "$CODER_TEMPLATE_ID" ]; then
