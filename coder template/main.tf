@@ -223,7 +223,7 @@ EOF
 set -eu
 
 NOTES=""
-if [ "${1:-}" = "--notes" ]; then
+if [ "$${1:-}" = "--notes" ]; then
   shift
   NOTES="$*"
 fi
