@@ -44,6 +44,8 @@ services:
       dockerfile: Dockerfile
     image: bugfarm-poc:local
     restart: unless-stopped
+    group_add:
+      - "${DOCKER_GID:-113}"
     env_file:
       - ${BUGFARM_ENV_FILE:-.env.vm}
     environment:
