@@ -440,6 +440,13 @@ excludes hidden tests, reports, rubric, baseline repo, and assessment metadata.
 
 For this milestone, hidden tests are deterministic and non-candidate-facing. BugFarm asks Cursor to generate a wrapper plus `hidden-tests/spec.json`, captures expected outputs from `baseline-repo`, and then requires `candidate-repo` to diverge on bug-exposing cases while matching baseline on control cases.
 
+Candidate submission is explicit in v1. The workspace includes `bugfarm-submit`
+and the launch page exposes a submit button. Submission captures candidate notes,
+snapshots `/home/coder/project`, evaluates the snapshot against the hidden-test
+bundle plus rubric dimensions, stores the result, and then requests a workspace
+stop. Scores are exposed through `GET /api/evaluations/:sessionId` for
+admin/backend consumers only.
+
 If hidden-test generation does not validate after a small number of retries, the artifact is preserved for inspection and `assessment.json` records the failed validation state.
 
 The end-to-end `/generate-assessment` path still requires live access to the Cursor API at runtime because both bug seeding and hidden-test synthesis are agent-driven.

@@ -18,8 +18,11 @@ import { logger } from "./utils/logger.js";
 import {
   handleArtifactDownload,
   handleCandidateLaunch,
+  handleCandidateLaunchSubmit,
   handleCandidateLaunchStatus,
 } from "./candidate/flow.js";
+import { queueCandidateSubmission } from "./candidate/evaluation.js";
+import { candidateSessionStore } from "./candidate/store.js";
 import { handleAiChatCompletions, handleAiModels } from "./ai/proxy.js";
 
 export function createServer(): express.Express {
@@ -65,12 +68,86 @@ export function createServer(): express.Express {
     }
   });
 
+  app.post("/candidate/launch/:launchToken/submit", async (req, res) => {
+    try {
+      await handleCandidateLaunchSubmit(req, res, {
+        onSubmit: ({ record, notes }) => queueCandidateSubmission({ record, notes }),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown candidate submit error";
+      logger.error("Failed to submit candidate workspace", { message });
+      res.status(500).send(message);
+    }
+  });
+
   app.get("/api/artifacts/:artifactHash.zip", async (req, res) => {
     try {
       await handleArtifactDownload(req, res);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown artifact download error";
       logger.error("Failed to download candidate artifact", { message });
+      res.status(500).json({ status: "error", message });
+    }
+  });
+
+  app.post("/api/candidate/submit", async (req, res) => {
+    try {
+      const token = parseBearerToken(req.header("authorization"));
+      const notes =
+        (typeof req.body?.notes === "string" ? req.body.notes : "") ||
+        (typeof req.body?.submitNotes === "string" ? req.body.submitNotes : "");
+
+      if (!token) {
+        res.status(401).json({ status: "error", message: "Submission authorization is required" });
+        return;
+      }
+
+      const record = await candidateSessionStore.findSubmitSessionByToken(token);
+      if (!record || record.status !== "provisioned") {
+        res.status(403).json({ status: "error", message: "Invalid submission token" });
+        return;
+      }
+
+      if (Date.parse(record.expiresAt) <= Date.now()) {
+        res.status(403).json({ status: "error", message: "Submission token expired" });
+        return;
+      }
+
+      if (!notes.trim()) {
+        res.status(400).json({ status: "error", message: "Submission notes are required" });
+        return;
+      }
+
+      const submission = await queueCandidateSubmission({
+        record,
+        notes: notes.trim(),
+      });
+      res.json({
+        status: submission.status,
+        submissionId: submission.submissionId,
+        message:
+          submission.status === "queued" || submission.status === "running"
+            ? "Submission accepted. Evaluation is running."
+            : "Submission already exists.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown candidate submit error";
+      logger.error("Failed to submit candidate workspace via token", { message });
+      res.status(500).json({ status: "error", message });
+    }
+  });
+
+  app.get("/api/evaluations/:sessionId", async (req, res) => {
+    try {
+      const result = await candidateSessionStore.findSubmissionBySessionId(req.params.sessionId);
+      if (!result) {
+        res.status(404).json({ status: "error", message: "Evaluation not found" });
+        return;
+      }
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown evaluation lookup error";
+      logger.error("Failed to fetch evaluation result", { message });
       res.status(500).json({ status: "error", message });
     }
   });
@@ -209,6 +286,15 @@ export function createServer(): express.Express {
   });
 
   return app;
+}
+
+function parseBearerToken(header: string | undefined): string | undefined {
+  if (!header) {
+    return undefined;
+  }
+
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match?.[1];
 }
 
 function handleOperationJobLookup(

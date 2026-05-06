@@ -117,6 +117,54 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/candidate/submit": {
+      post: {
+        summary: "Submit a candidate workspace for evaluation",
+        operationId: "submitCandidateWorkspace",
+        description:
+          "Accepts a session-scoped submit token from inside the candidate workspace, queues a one-time evaluation run, and returns submission status without exposing the score.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["notes"],
+                properties: {
+                  notes: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "Submission accepted or already exists" },
+          "400": { description: "Missing submission notes" },
+          "401": { description: "Missing submission token" },
+          "403": { description: "Invalid or expired submission token" },
+        },
+      },
+    },
+    "/api/evaluations/{sessionId}": {
+      get: {
+        summary: "Fetch stored evaluation result for a session",
+        operationId: "getCandidateEvaluation",
+        parameters: [
+          {
+            in: "path",
+            name: "sessionId",
+            required: true,
+            schema: {
+              type: "string",
+            },
+          },
+        ],
+        responses: {
+          "200": { description: "Evaluation result found" },
+          "404": { description: "Evaluation not found" },
+        },
+      },
+    },
     "/seed-bug": {
       post: {
         summary: "Seed a bug into a repository",

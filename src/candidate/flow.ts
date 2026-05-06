@@ -7,6 +7,7 @@ import {
   type CandidateSessionStore,
 } from "./store.js";
 import { createSecretToken, hashToken, tokenMatches } from "./tokens.js";
+import type { CandidateEvaluationResult } from "../assessment/types.js";
 
 export type CandidateLaunchResult = {
   candidateLaunchUrl: string;
@@ -19,6 +20,7 @@ export type CandidateCoder = Pick<
   | "workspaceUrl"
   | "codeServerUrl"
   | "getWorkspaceReadiness"
+  | "stopWorkspace"
 >;
 
 export async function createCandidateLaunchForAssessment(input: {
@@ -59,6 +61,19 @@ export async function handleCandidateLaunch(
   }
 
   if (record.status === "provisioned" && record.coderUsername && record.coderWorkspaceName) {
+    const coder = options.coder ?? new CoderClient();
+    const readiness = await coder.getWorkspaceReadiness(record.coderWorkspaceId!);
+    const submission = await store.findSubmissionBySessionId(record.sessionId);
+    if (readiness.status === "ready") {
+      res.send(
+        renderWorkspaceControlPage({
+          launchToken,
+          codeServerUrl: coder.codeServerUrl(record.coderUsername, record.coderWorkspaceName),
+          submission,
+        }),
+      );
+      return;
+    }
     res.send(renderLaunchLoaderPage({ launchToken }));
     return;
   }
@@ -137,6 +152,7 @@ async function ensureCandidateWorkspace(input: {
   const coderPassword = createSecretToken(18);
   const artifactToken = createSecretToken(32);
   const aiProxyToken = createSecretToken(32);
+  const submitToken = createSecretToken(32);
 
   try {
     const user = await coder.createUser({
@@ -152,12 +168,14 @@ async function ensureCandidateWorkspace(input: {
       sessionId: input.record.sessionId,
       artifactToken,
       aiProxyToken,
+      submitToken,
     });
 
     await store.markProvisioned({
       sessionId: input.record.sessionId,
       artifactTokenHash: hashToken(artifactToken),
       aiTokenHash: hashToken(aiProxyToken),
+      submitTokenHash: hashToken(submitToken),
       coderUserId: user.id,
       coderUsername: user.username,
       coderWorkspaceId: workspace.id,
@@ -170,6 +188,7 @@ async function ensureCandidateWorkspace(input: {
         status: "provisioned",
         artifactTokenHash: hashToken(artifactToken),
         aiTokenHash: hashToken(aiProxyToken),
+        submitTokenHash: hashToken(submitToken),
         coderUserId: user.id,
         coderUsername: user.username,
         coderWorkspaceId: workspace.id,
@@ -233,6 +252,51 @@ export async function handleArtifactDownload(
   }
 }
 
+export async function handleCandidateLaunchSubmit(
+  req: Request,
+  res: Response,
+  options: {
+    store?: CandidateSessionStore;
+    onSubmit?: (input: { record: CandidateSessionRecord; notes: string }) => Promise<CandidateEvaluationResult>;
+  } = {},
+): Promise<void> {
+  const store = options.store ?? candidateSessionStore;
+  const record = await store.findByLaunchToken(req.params.launchToken);
+
+  if (!record) {
+    res.status(404).send(renderMessagePage("Invalid assessment link", "This assessment link was not found."));
+    return;
+  }
+
+  if (isExpired(record)) {
+    res.status(410).send(renderMessagePage("Expired assessment link", "This assessment link has expired."));
+    return;
+  }
+
+  const notes = readSubmitNotes(req);
+  if (!notes) {
+    res.status(400).send(renderMessagePage("Missing submission notes", "Please describe what you changed and how you verified it."));
+    return;
+  }
+
+  if (!options.onSubmit) {
+    throw new Error("Candidate submission handler is not configured");
+  }
+
+  await options.onSubmit({ record, notes });
+  res.send(
+    renderPage(
+      "Submission received",
+      `
+        <main>
+          <h1>Submission received</h1>
+          <p>Your work has been submitted for evaluation. You can close this page.</p>
+        </main>
+      `,
+    ),
+  );
+}
+
 function parseBearerToken(header: string | undefined): string | undefined {
   if (!header) {
     return undefined;
@@ -240,6 +304,13 @@ function parseBearerToken(header: string | undefined): string | undefined {
 
   const match = header.match(/^Bearer\s+(.+)$/i);
   return match?.[1];
+}
+
+function readSubmitNotes(req: Request): string {
+  const bodyValue =
+    (typeof req.body?.notes === "string" ? req.body.notes : "") ||
+    (typeof req.body?.submitNotes === "string" ? req.body.submitNotes : "");
+  return bodyValue.trim();
 }
 
 function isExpired(record: CandidateSessionRecord): boolean {
@@ -302,6 +373,40 @@ function renderLaunchLoaderPage(input: { launchToken: string }): string {
 
         poll();
       </script>
+    `,
+  );
+}
+
+function renderWorkspaceControlPage(input: {
+  launchToken: string;
+  codeServerUrl: string;
+  submission?: CandidateEvaluationResult;
+}): string {
+  const statusMessage =
+    input.submission?.status === "succeeded" || input.submission?.status === "failed"
+      ? "Your submission has been processed."
+      : input.submission
+        ? "Your submission is being evaluated."
+        : "Workspace is ready. Continue in code-server and submit when you are done.";
+  const submitSection = input.submission
+    ? `<p>${escapeHtml(statusMessage)}</p>`
+    : `
+      <form method="post" action="/candidate/launch/${escapeHtml(input.launchToken)}/submit">
+        <label for="submit-notes">What did you change and how did you verify it?</label>
+        <textarea id="submit-notes" name="notes" required rows="6" style="width:100%;margin:12px 0;background:#111827;color:#f9fafb;border:1px solid #374151;border-radius:8px;padding:12px;"></textarea>
+        <button class="button" type="submit">Submit assessment</button>
+      </form>
+    `;
+
+  return renderPage(
+    "Assessment workspace",
+    `
+      <main>
+        <h1>Assessment workspace</h1>
+        <p>${escapeHtml(statusMessage)}</p>
+        <p><a class="button" href="${escapeHtml(input.codeServerUrl)}">Open code-server</a></p>
+        <section>${submitSection}</section>
+      </main>
     `,
   );
 }

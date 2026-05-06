@@ -209,6 +209,7 @@ async function provisionedStore(input: { ttlMs?: number } = {}) {
     sessionId: created.record.sessionId,
     artifactTokenHash: hashToken("artifact-token"),
     aiTokenHash: hashToken(aiToken),
+    submitTokenHash: hashToken("submit-token"),
     coderUserId: "user-id",
     coderUsername: "candidate-abc",
     coderWorkspaceId: "workspace-id",

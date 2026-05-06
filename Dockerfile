@@ -29,6 +29,7 @@ WORKDIR /app
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates \
+    docker.io \
     git \
     python3 \
   && rm -rf /var/lib/apt/lists/* \

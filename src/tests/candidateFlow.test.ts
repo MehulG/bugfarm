@@ -96,6 +96,7 @@ test("Coder client sends user and workspace creation request shapes", async () =
       sessionId: "session-123",
       artifactToken: "artifact-token",
       aiProxyToken: "ai-proxy-token",
+      submitToken: "submit-token",
     });
   } finally {
     globalThis.fetch = originalFetch;
@@ -124,6 +125,7 @@ test("Coder client sends user and workspace creation request shapes", async () =
       { name: "session_id", value: "session-123" },
       { name: "artifact_token", value: "artifact-token" },
       { name: "ai_proxy_token", value: "ai-proxy-token" },
+      { name: "submit_token", value: "submit-token" },
     ],
   });
 });
@@ -247,6 +249,8 @@ class FakeCoder {
       status: "ready" as const,
     };
   }
+
+  async stopWorkspace() {}
 }
 
 function readZipEntries(zip: Buffer): Record<string, Buffer> {

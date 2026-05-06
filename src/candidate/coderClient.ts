@@ -61,6 +61,7 @@ export class CoderClient {
     sessionId: string;
     artifactToken: string;
     aiProxyToken: string;
+    submitToken: string;
   }): Promise<CoderWorkspace> {
     const body = await this.request<{ id: string; name: string }>(
       `/api/v2/users/${encodeURIComponent(input.username)}/workspaces`,
@@ -87,6 +88,10 @@ export class CoderClient {
             {
               name: "ai_proxy_token",
               value: input.aiProxyToken,
+            },
+            {
+              name: "submit_token",
+              value: input.submitToken,
             },
           ],
         },
@@ -148,6 +153,16 @@ export class CoderClient {
       status: "starting",
       message: app?.health ? `code-server is ${app.health}` : `Coder workspace status is ${buildStatus || "starting"}`,
     };
+  }
+
+  async stopWorkspace(workspaceId: string): Promise<void> {
+    await this.request(`/api/v2/workspaces/${encodeURIComponent(workspaceId)}/builds`, {
+      method: "POST",
+      body: {
+        transition: "stop",
+      },
+      expectJson: false,
+    });
   }
 
   private async request<T = unknown>(

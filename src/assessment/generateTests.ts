@@ -88,7 +88,7 @@ export async function validateGenerateTestsRequest(
   }
 }
 
-async function loadAssessmentMetadata(artifactPath: string): Promise<AssessmentMetadata> {
+export async function loadAssessmentMetadata(artifactPath: string): Promise<AssessmentMetadata> {
   const raw = await readFile(path.join(artifactPath, "assessment.json"), "utf8");
   const parsed = JSON.parse(raw) as AssessmentMetadata;
 

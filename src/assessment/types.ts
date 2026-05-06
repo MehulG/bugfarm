@@ -37,6 +37,29 @@ export type AssessmentValidation = {
   rejectedReason?: string;
 };
 
+export type SubmissionHiddenTestCaseResult = {
+  caseId: string;
+  category: "control" | "exposes_bug";
+  matchedBaseline: boolean;
+  output?: string;
+};
+
+export type SubmissionHiddenTestResult = {
+  status: "passed" | "failed";
+  ecosystem: "node" | "python" | "unknown";
+  wrapperEntrypoints: string[];
+  command?: string;
+  output?: string;
+  notes: string[];
+  cases: SubmissionHiddenTestCaseResult[];
+  controlPassed: number;
+  controlTotal: number;
+  exposingPassed: number;
+  exposingTotal: number;
+  score: number;
+  reason?: string;
+};
+
 export type AssessmentRubric = {
   dimensions: Array<{
     name: string;
@@ -48,6 +71,35 @@ export type AssessmentRubric = {
   area?: string;
   language?: string;
   role?: string;
+};
+
+export type CandidateEvaluationDimensionScore = {
+  name: string;
+  weight: number;
+  score: number;
+  reason: string;
+};
+
+export type CandidateFinalVerdict = "pass" | "fail";
+
+export type CandidateSubmissionStatus = "queued" | "running" | "succeeded" | "failed";
+
+export type CandidateEvaluationResult = {
+  submissionId: string;
+  sessionId: string;
+  assessmentId: string;
+  status: CandidateSubmissionStatus;
+  submittedAt: string;
+  completedAt?: string;
+  submitNotes: string;
+  workspaceSnapshotPath?: string;
+  hiddenTestResult?: SubmissionHiddenTestResult;
+  dimensionScores?: CandidateEvaluationDimensionScore[];
+  overallScore?: number;
+  finalVerdict?: CandidateFinalVerdict;
+  evaluatorNotes?: string;
+  workspaceStopRequestedAt?: string;
+  errorText?: string;
 };
 
 export type AssessmentMetadata = {

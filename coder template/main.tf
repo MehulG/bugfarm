@@ -44,6 +44,13 @@ data "coder_parameter" "ai_proxy_token" {
   mutable      = false
 }
 
+data "coder_parameter" "submit_token" {
+  name         = "submit_token"
+  display_name = "Submit Token"
+  type         = "string"
+  mutable      = false
+}
+
 data "coder_workspace" "me" {}
 
 data "coder_workspace_owner" "me" {}
@@ -156,6 +163,8 @@ EOF
     cat > /home/coder/.bugfarm-ai.env <<EOF
 export AI_PROXY_URL="$AI_PROXY_URL_NORMALIZED"
 export AI_PROXY_TOKEN="$AI_PROXY_TOKEN"
+export SUBMIT_URL="$PLATFORM_URL_NORMALIZED/api/candidate/submit"
+export SUBMIT_TOKEN="$SUBMIT_TOKEN"
 EOF
     if ! grep -q '.bugfarm-ai.env' /home/coder/.profile 2>/dev/null; then
       cat >> /home/coder/.profile <<'EOF'
@@ -208,6 +217,38 @@ else
 fi
 EOF
     sudo chmod +x /usr/local/bin/bugfarm-ai
+
+    sudo tee /usr/local/bin/bugfarm-submit >/dev/null <<'EOF'
+#!/bin/sh
+set -eu
+
+NOTES=""
+if [ "${1:-}" = "--notes" ]; then
+  shift
+  NOTES="$*"
+fi
+
+if [ -z "$NOTES" ]; then
+  echo "Describe what you changed and how you verified it:"
+  IFS= read -r NOTES
+fi
+
+if [ -z "$${SUBMIT_URL:-}" ] || [ -z "$${SUBMIT_TOKEN:-}" ]; then
+  if [ -f "$HOME/.bugfarm-ai.env" ]; then
+    . "$HOME/.bugfarm-ai.env"
+  fi
+fi
+
+if [ -z "$NOTES" ]; then
+  echo "Submission notes are required." >&2
+  exit 1
+fi
+
+BODY=$(printf '{"notes":%s}' "$(printf '%s' "$NOTES" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')")
+RESPONSE=$(curl -sS -H "Authorization: Bearer $SUBMIT_TOKEN" -H "Content-Type: application/json" "$SUBMIT_URL" -d "$BODY")
+printf '%s\n' "$RESPONSE"
+EOF
+    sudo chmod +x /usr/local/bin/bugfarm-submit
 
     if [ ! -f "$PROJECT_DIR/.artifact_ready" ]; then
       echo "Downloading artifact $ARTIFACT_HASH for session $ASSESSMENT_SESSION_ID"
@@ -281,7 +322,9 @@ resource "docker_container" "workspace" {
     "ASSESSMENT_SESSION_ID=${data.coder_parameter.session_id.value}",
     "ARTIFACT_TOKEN=${data.coder_parameter.artifact_token.value}",
     "AI_PROXY_TOKEN=${data.coder_parameter.ai_proxy_token.value}",
+    "SUBMIT_TOKEN=${data.coder_parameter.submit_token.value}",
     "AI_PROXY_URL=${trimsuffix(var.platform_url, "/")}/v1",
+    "SUBMIT_URL=${trimsuffix(var.platform_url, "/")}/api/candidate/submit",
     "CLINE_DIR=/home/coder/.cline",
   ]
 

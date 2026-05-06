@@ -3,7 +3,11 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { runCursorAgent } from "../cursor/client.js";
-import type { AssessmentValidation, AssessmentValidationRun } from "./types.js";
+import type {
+  AssessmentValidation,
+  AssessmentValidationRun,
+  SubmissionHiddenTestResult,
+} from "./types.js";
 
 const execFileAsync = promisify(execFile);
 const MAX_RETRIES = 3;
@@ -424,6 +428,138 @@ export function compareCaseResults(
     status: "failed",
     candidateStatus: "failed",
     reason: "Hidden test comparison did not produce a valid pass/fail split.",
+  };
+}
+
+export async function evaluateSubmittedRepoAgainstHiddenTests(input: {
+  artifactPath: string;
+  baselineRepoPath: string;
+  submittedRepoPath: string;
+  hiddenTestsPath: string;
+}): Promise<SubmissionHiddenTestResult> {
+  const spec = await loadSpec(path.join(input.hiddenTestsPath, "spec.json"));
+  if (!spec) {
+    return {
+      status: "failed",
+      ecosystem: "unknown",
+      wrapperEntrypoints: [],
+      notes: ["Hidden test spec could not be loaded."],
+      cases: [],
+      controlPassed: 0,
+      controlTotal: 0,
+      exposingPassed: 0,
+      exposingTotal: 0,
+      score: 0,
+      reason: "Hidden test spec is missing or invalid.",
+    };
+  }
+
+  const specError = validateSpec(spec);
+  if (specError) {
+    return {
+      status: "failed",
+      ecosystem: spec.ecosystem,
+      wrapperEntrypoints: [spec.wrapper.path],
+      notes: ["Hidden test spec validation failed."],
+      cases: [],
+      controlPassed: 0,
+      controlTotal: 0,
+      exposingPassed: 0,
+      exposingTotal: 0,
+      score: 0,
+      reason: specError,
+    };
+  }
+
+  const baselineResults = await runCasesForRepo({
+    artifactPath: input.artifactPath,
+    repoPath: input.baselineRepoPath,
+    spec,
+  });
+
+  if (baselineResults.status !== "passed") {
+    return {
+      status: "failed",
+      ecosystem: spec.ecosystem,
+      wrapperEntrypoints: [spec.wrapper.path],
+      command: renderWrapperCommand(spec),
+      output: trimOutput(baselineResults.output),
+      notes: ["Baseline oracle execution failed during submission evaluation."],
+      cases: [],
+      controlPassed: 0,
+      controlTotal: spec.cases.filter((testCase) => testCase.category === "control").length,
+      exposingPassed: 0,
+      exposingTotal: spec.cases.filter((testCase) => testCase.category === "exposes_bug").length,
+      score: 0,
+      reason: baselineResults.reason || "Baseline oracle execution failed.",
+    };
+  }
+
+  const submittedResults = await runCasesForRepo({
+    artifactPath: input.artifactPath,
+    repoPath: input.submittedRepoPath,
+    spec,
+    oracle: baselineResults.caseOutputs,
+  });
+
+  const cases = submittedResults.caseExecutions.map((execution) => ({
+    caseId: execution.caseId,
+    category: execution.category,
+    matchedBaseline: execution.matchedBaseline === true,
+    output: execution.output,
+  }));
+  const summary = summarizeSubmittedCaseResults(cases);
+  const status =
+    submittedResults.status === "passed" &&
+    summary.controlPassed === summary.controlTotal &&
+    summary.exposingPassed === summary.exposingTotal
+      ? "passed"
+      : "failed";
+  const reason =
+    submittedResults.status === "failed"
+      ? submittedResults.reason || "Hidden tests failed to execute against the submitted repo."
+      : status === "passed"
+        ? "Submitted repo matched baseline on all hidden test cases."
+        : "Submitted repo did not match baseline on all hidden test cases.";
+
+  return {
+    status,
+    ecosystem: spec.ecosystem,
+    wrapperEntrypoints: [spec.wrapper.path],
+    command: renderWrapperCommand(spec),
+    output: trimOutput(submittedResults.output),
+    notes: [
+      "Submitted repo was compared against baseline expectations captured from hidden test execution.",
+    ],
+    cases,
+    controlPassed: summary.controlPassed,
+    controlTotal: summary.controlTotal,
+    exposingPassed: summary.exposingPassed,
+    exposingTotal: summary.exposingTotal,
+    score: summary.score,
+    reason,
+  };
+}
+
+export function summarizeSubmittedCaseResults(
+  cases: SubmissionHiddenTestResult["cases"],
+): Pick<
+  SubmissionHiddenTestResult,
+  "controlPassed" | "controlTotal" | "exposingPassed" | "exposingTotal" | "score"
+> {
+  const controlCases = cases.filter((testCase) => testCase.category === "control");
+  const exposingCases = cases.filter((testCase) => testCase.category === "exposes_bug");
+  const controlPassed = controlCases.filter((testCase) => testCase.matchedBaseline).length;
+  const exposingPassed = exposingCases.filter((testCase) => testCase.matchedBaseline).length;
+  const controlScore = controlCases.length === 0 ? 1 : controlPassed / controlCases.length;
+  const exposingScore = exposingCases.length === 0 ? 1 : exposingPassed / exposingCases.length;
+
+  return {
+    controlPassed,
+    controlTotal: controlCases.length,
+    exposingPassed,
+    exposingTotal: exposingCases.length,
+    score: Math.round((controlScore * 50 + exposingScore * 50) * 100) / 100,
   };
 }
 

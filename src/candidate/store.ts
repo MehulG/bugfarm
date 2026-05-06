@@ -3,6 +3,13 @@ import path from "node:path";
 import sqlite3 from "sqlite3";
 import { config } from "../config.js";
 import { createSecretToken, hashToken, shortId } from "./tokens.js";
+import type {
+  CandidateEvaluationDimensionScore,
+  CandidateEvaluationResult,
+  CandidateFinalVerdict,
+  CandidateSubmissionStatus,
+  SubmissionHiddenTestResult,
+} from "../assessment/types.js";
 
 export type CandidateSessionStatus = "pending" | "provisioned" | "failed";
 
@@ -14,6 +21,7 @@ export type CandidateSessionRecord = {
   launchTokenHash: string;
   artifactTokenHash?: string;
   aiTokenHash?: string;
+  submitTokenHash?: string;
   coderUserId?: string;
   coderUsername?: string;
   coderWorkspaceId?: string;
@@ -33,6 +41,7 @@ type CandidateSessionRow = {
   launch_token_hash: string;
   artifact_token_hash: string | null;
   ai_token_hash: string | null;
+  submit_token_hash: string | null;
   coder_user_id: string | null;
   coder_username: string | null;
   coder_workspace_id: string | null;
@@ -66,6 +75,24 @@ export type CreatedCandidateSession = {
   record: CandidateSessionRecord;
   launchToken: string;
   candidateLaunchUrl: string;
+};
+
+type CandidateSubmissionRow = {
+  submission_id: string;
+  session_id: string;
+  assessment_id: string;
+  status: CandidateSubmissionStatus;
+  submitted_at: string;
+  completed_at: string | null;
+  submit_notes: string;
+  workspace_snapshot_path: string | null;
+  hidden_test_result_json: string | null;
+  dimension_scores_json: string | null;
+  overall_score: number | null;
+  final_verdict: CandidateFinalVerdict | null;
+  evaluator_notes: string | null;
+  workspace_stop_requested_at: string | null;
+  error_text: string | null;
 };
 
 export class CandidateSessionStore {
@@ -159,10 +186,20 @@ export class CandidateSessionStore {
     return row ? rowToRecord(row) : undefined;
   }
 
+  async findSubmitSessionByToken(token: string): Promise<CandidateSessionRecord | undefined> {
+    await this.init();
+    const row = await this.get<CandidateSessionRow>(
+      "SELECT * FROM candidate_sessions WHERE submit_token_hash = ?",
+      [hashToken(token)],
+    );
+    return row ? rowToRecord(row) : undefined;
+  }
+
   async markProvisioned(input: {
     sessionId: string;
     artifactTokenHash: string;
     aiTokenHash: string;
+    submitTokenHash: string;
     coderUserId: string;
     coderUsername: string;
     coderWorkspaceId: string;
@@ -175,6 +212,7 @@ export class CandidateSessionStore {
        SET status = 'provisioned',
            artifact_token_hash = ?,
            ai_token_hash = ?,
+           submit_token_hash = ?,
            coder_user_id = ?,
            coder_username = ?,
            coder_workspace_id = ?,
@@ -185,6 +223,7 @@ export class CandidateSessionStore {
       [
         input.artifactTokenHash,
         input.aiTokenHash,
+        input.submitTokenHash,
         input.coderUserId,
         input.coderUsername,
         input.coderWorkspaceId,
@@ -292,6 +331,123 @@ export class CandidateSessionStore {
     };
   }
 
+  async createSubmission(input: {
+    submissionId: string;
+    sessionId: string;
+    assessmentId: string;
+    submitNotes: string;
+  }): Promise<CandidateEvaluationResult> {
+    await this.init();
+    const submittedAt = new Date().toISOString();
+
+    await this.run(
+      `INSERT INTO candidate_submissions (
+        submission_id,
+        session_id,
+        assessment_id,
+        status,
+        submitted_at,
+        submit_notes
+      ) VALUES (?, ?, ?, 'queued', ?, ?)`,
+      [input.submissionId, input.sessionId, input.assessmentId, submittedAt, input.submitNotes],
+    );
+
+    return {
+      submissionId: input.submissionId,
+      sessionId: input.sessionId,
+      assessmentId: input.assessmentId,
+      status: "queued",
+      submittedAt,
+      submitNotes: input.submitNotes,
+    };
+  }
+
+  async findSubmissionBySessionId(sessionId: string): Promise<CandidateEvaluationResult | undefined> {
+    await this.init();
+    const row = await this.get<CandidateSubmissionRow>(
+      `SELECT *
+       FROM candidate_submissions
+       WHERE session_id = ?
+       ORDER BY submitted_at DESC
+       LIMIT 1`,
+      [sessionId],
+    );
+    return row ? rowToSubmission(row) : undefined;
+  }
+
+  async markSubmissionRunning(input: {
+    sessionId: string;
+    workspaceSnapshotPath: string;
+  }): Promise<void> {
+    await this.init();
+    await this.run(
+      `UPDATE candidate_submissions
+       SET status = 'running',
+           workspace_snapshot_path = ?
+       WHERE session_id = ?`,
+      [input.workspaceSnapshotPath, input.sessionId],
+    );
+  }
+
+  async markSubmissionSucceeded(input: {
+    sessionId: string;
+    hiddenTestResult: SubmissionHiddenTestResult;
+    dimensionScores: CandidateEvaluationDimensionScore[];
+    overallScore: number;
+    finalVerdict: CandidateFinalVerdict;
+    evaluatorNotes: string;
+  }): Promise<void> {
+    await this.init();
+    await this.run(
+      `UPDATE candidate_submissions
+       SET status = 'succeeded',
+           completed_at = ?,
+           hidden_test_result_json = ?,
+           dimension_scores_json = ?,
+           overall_score = ?,
+           final_verdict = ?,
+           evaluator_notes = ?,
+           error_text = NULL
+       WHERE session_id = ?`,
+      [
+        new Date().toISOString(),
+        JSON.stringify(input.hiddenTestResult),
+        JSON.stringify(input.dimensionScores),
+        input.overallScore,
+        input.finalVerdict,
+        input.evaluatorNotes,
+        input.sessionId,
+      ],
+    );
+  }
+
+  async markSubmissionFailed(input: {
+    sessionId: string;
+    errorText: string;
+    workspaceSnapshotPath?: string;
+  }): Promise<void> {
+    await this.init();
+    await this.run(
+      `UPDATE candidate_submissions
+       SET status = 'failed',
+           completed_at = ?,
+           workspace_snapshot_path = COALESCE(?, workspace_snapshot_path),
+           error_text = ?
+       WHERE session_id = ?`,
+      [new Date().toISOString(), input.workspaceSnapshotPath ?? null, input.errorText, input.sessionId],
+    );
+  }
+
+  async markWorkspaceStopRequested(sessionId: string): Promise<void> {
+    await this.init();
+    await this.run(
+      `UPDATE candidate_submissions
+       SET workspace_stop_requested_at = ?
+       WHERE session_id = ?`,
+      [new Date().toISOString(), sessionId],
+    );
+  }
+
   makeCoderUsername(sessionId: string): string {
     return `candidate-${shortId(sessionId)}`;
   }
@@ -331,6 +487,7 @@ export class CandidateSessionStore {
         launch_token_hash TEXT NOT NULL UNIQUE,
         artifact_token_hash TEXT,
         ai_token_hash TEXT,
+        submit_token_hash TEXT,
         coder_user_id TEXT,
         coder_username TEXT,
         coder_workspace_id TEXT,
@@ -343,11 +500,15 @@ export class CandidateSessionStore {
       )
     `);
     await this.addColumnIfMissing("candidate_sessions", "ai_token_hash", "TEXT");
+    await this.addColumnIfMissing("candidate_sessions", "submit_token_hash", "TEXT");
     await this.run(
       "CREATE INDEX IF NOT EXISTS idx_candidate_sessions_artifact ON candidate_sessions (artifact_hash, session_id)",
     );
     await this.run(
       "CREATE INDEX IF NOT EXISTS idx_candidate_sessions_ai_token ON candidate_sessions (ai_token_hash)",
+    );
+    await this.run(
+      "CREATE INDEX IF NOT EXISTS idx_candidate_sessions_submit_token ON candidate_sessions (submit_token_hash)",
     );
     await this.run(`
       CREATE TABLE IF NOT EXISTS ai_proxy_requests (
@@ -365,6 +526,28 @@ export class CandidateSessionStore {
     `);
     await this.run(
       "CREATE INDEX IF NOT EXISTS idx_ai_proxy_requests_session ON ai_proxy_requests (session_id, created_at)",
+    );
+    await this.run(`
+      CREATE TABLE IF NOT EXISTS candidate_submissions (
+        submission_id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL UNIQUE,
+        assessment_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        submitted_at TEXT NOT NULL,
+        completed_at TEXT,
+        submit_notes TEXT NOT NULL,
+        workspace_snapshot_path TEXT,
+        hidden_test_result_json TEXT,
+        dimension_scores_json TEXT,
+        overall_score REAL,
+        final_verdict TEXT,
+        evaluator_notes TEXT,
+        workspace_stop_requested_at TEXT,
+        error_text TEXT
+      )
+    `);
+    await this.run(
+      "CREATE INDEX IF NOT EXISTS idx_candidate_submissions_assessment ON candidate_submissions (assessment_id, submitted_at)",
     );
   }
 
@@ -428,6 +611,7 @@ function rowToRecord(row: CandidateSessionRow): CandidateSessionRecord {
     launchTokenHash: row.launch_token_hash,
     artifactTokenHash: row.artifact_token_hash ?? undefined,
     aiTokenHash: row.ai_token_hash ?? undefined,
+    submitTokenHash: row.submit_token_hash ?? undefined,
     coderUserId: row.coder_user_id ?? undefined,
     coderUsername: row.coder_username ?? undefined,
     coderWorkspaceId: row.coder_workspace_id ?? undefined,
@@ -441,3 +625,27 @@ function rowToRecord(row: CandidateSessionRow): CandidateSessionRecord {
 }
 
 export const candidateSessionStore = new CandidateSessionStore();
+
+function rowToSubmission(row: CandidateSubmissionRow): CandidateEvaluationResult {
+  return {
+    submissionId: row.submission_id,
+    sessionId: row.session_id,
+    assessmentId: row.assessment_id,
+    status: row.status,
+    submittedAt: row.submitted_at,
+    completedAt: row.completed_at ?? undefined,
+    submitNotes: row.submit_notes,
+    workspaceSnapshotPath: row.workspace_snapshot_path ?? undefined,
+    hiddenTestResult: row.hidden_test_result_json
+      ? (JSON.parse(row.hidden_test_result_json) as SubmissionHiddenTestResult)
+      : undefined,
+    dimensionScores: row.dimension_scores_json
+      ? (JSON.parse(row.dimension_scores_json) as CandidateEvaluationDimensionScore[])
+      : undefined,
+    overallScore: row.overall_score ?? undefined,
+    finalVerdict: row.final_verdict ?? undefined,
+    evaluatorNotes: row.evaluator_notes ?? undefined,
+    workspaceStopRequestedAt: row.workspace_stop_requested_at ?? undefined,
+    errorText: row.error_text ?? undefined,
+  };
+}
