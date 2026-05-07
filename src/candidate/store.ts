@@ -375,6 +375,40 @@ export class CandidateSessionStore {
     return row ? rowToSubmission(row) : undefined;
   }
 
+  async findSubmissionBySubmissionId(submissionId: string): Promise<CandidateEvaluationResult | undefined> {
+    await this.init();
+    const row = await this.get<CandidateSubmissionRow>(
+      `SELECT *
+       FROM candidate_submissions
+       WHERE submission_id = ?
+       LIMIT 1`,
+      [submissionId],
+    );
+    return row ? rowToSubmission(row) : undefined;
+  }
+
+  async listSubmissions(input: { assessmentId?: string; limit?: number } = {}): Promise<CandidateEvaluationResult[]> {
+    await this.init();
+    const boundedLimit = Math.min(Math.max(Math.trunc(input.limit ?? 50) || 50, 1), 200);
+    const rows = input.assessmentId
+      ? await this.all<CandidateSubmissionRow>(
+          `SELECT *
+           FROM candidate_submissions
+           WHERE assessment_id = ?
+           ORDER BY submitted_at DESC
+           LIMIT ?`,
+          [input.assessmentId, boundedLimit],
+        )
+      : await this.all<CandidateSubmissionRow>(
+          `SELECT *
+           FROM candidate_submissions
+           ORDER BY submitted_at DESC
+           LIMIT ?`,
+          [boundedLimit],
+        );
+    return rows.map(rowToSubmission);
+  }
+
   async markSubmissionRunning(input: {
     sessionId: string;
     workspaceSnapshotPath: string;
@@ -625,6 +659,7 @@ function rowToRecord(row: CandidateSessionRow): CandidateSessionRecord {
 }
 
 export const candidateSessionStore = new CandidateSessionStore();
+
 
 function rowToSubmission(row: CandidateSubmissionRow): CandidateEvaluationResult {
   return {

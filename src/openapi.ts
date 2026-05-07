@@ -145,6 +145,236 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/submissions": {
+      get: {
+        summary: "List full candidate submissions",
+        operationId: "listCandidateSubmissions",
+        description:
+          "Returns complete stored submission/evaluation records. Filter by assessmentId to fetch submissions for a particular assignment, or by sessionId to fetch the submission for one candidate session.",
+        parameters: [
+          {
+            in: "query",
+            name: "assessmentId",
+            required: false,
+            schema: { type: "string" },
+          },
+          {
+            in: "query",
+            name: "sessionId",
+            required: false,
+            schema: { type: "string" },
+          },
+          {
+            in: "query",
+            name: "limit",
+            required: false,
+            schema: {
+              type: "integer",
+              minimum: 1,
+              maximum: 200,
+              default: 50,
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Complete submission records",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["submissions"],
+                  properties: {
+                    submissions: {
+                      type: "array",
+                      items: { type: "object", additionalProperties: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/submissions/assessment/{assessmentId}": {
+      get: {
+        summary: "Fetch full submissions for an assessment",
+        operationId: "getAssessmentSubmissions",
+        description:
+          "Returns complete stored submission/evaluation records for all candidate submissions belonging to one assessment.",
+        parameters: [
+          {
+            in: "path",
+            name: "assessmentId",
+            required: true,
+            schema: { type: "string" },
+          },
+          {
+            in: "query",
+            name: "limit",
+            required: false,
+            schema: {
+              type: "integer",
+              minimum: 1,
+              maximum: 200,
+              default: 50,
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Complete assessment submission records",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["assessmentId", "submissions"],
+                  properties: {
+                    assessmentId: { type: "string" },
+                    submissions: {
+                      type: "array",
+                      items: { type: "object", additionalProperties: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/submission/assessment/{assessmentId}": {
+      get: {
+        summary: "Fetch full submissions for an assessment",
+        operationId: "getAssessmentSubmissionAlias",
+        description:
+          "Singular alias for fetching complete stored submission/evaluation records for all candidate submissions belonging to one assessment.",
+        parameters: [
+          {
+            in: "path",
+            name: "assessmentId",
+            required: true,
+            schema: { type: "string" },
+          },
+          {
+            in: "query",
+            name: "limit",
+            required: false,
+            schema: {
+              type: "integer",
+              minimum: 1,
+              maximum: 200,
+              default: 50,
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Complete assessment submission records",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["assessmentId", "submissions"],
+                  properties: {
+                    assessmentId: { type: "string" },
+                    submissions: {
+                      type: "array",
+                      items: { type: "object", additionalProperties: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/submissions/{submissionId}": {
+      get: {
+        summary: "Fetch one full candidate submission",
+        operationId: "getCandidateSubmission",
+        parameters: [
+          {
+            in: "path",
+            name: "submissionId",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": { description: "Complete submission record" },
+          "404": { description: "Submission not found" },
+        },
+      },
+    },
+    "/api/submission/{submissionId}": {
+      get: {
+        summary: "Fetch one full candidate submission",
+        operationId: "getCandidateSubmissionAlias",
+        description: "Singular alias for fetching one complete candidate submission/evaluation record.",
+        parameters: [
+          {
+            in: "path",
+            name: "submissionId",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": { description: "Complete submission record" },
+          "404": { description: "Submission not found" },
+        },
+      },
+    },
+    "/api/evaluations/assessment/{assessmentId}": {
+      get: {
+        summary: "Fetch full evaluation results for an assessment",
+        operationId: "getAssessmentEvaluationResults",
+        description:
+          "Returns complete stored submission/evaluation records for all candidate submissions belonging to one assessment.",
+        parameters: [
+          {
+            in: "path",
+            name: "assessmentId",
+            required: true,
+            schema: { type: "string" },
+          },
+          {
+            in: "query",
+            name: "limit",
+            required: false,
+            schema: {
+              type: "integer",
+              minimum: 1,
+              maximum: 200,
+              default: 50,
+            },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Complete assessment evaluation results",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["assessmentId", "submissions"],
+                  properties: {
+                    assessmentId: { type: "string" },
+                    submissions: {
+                      type: "array",
+                      items: { type: "object", additionalProperties: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
     "/api/evaluations/{sessionId}": {
       get: {
         summary: "Fetch stored evaluation result for a session",

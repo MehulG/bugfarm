@@ -137,6 +137,95 @@ export function createServer(): express.Express {
     }
   });
 
+  app.get("/api/submissions", async (req, res) => {
+    try {
+      const rawLimit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+      const assessmentId = typeof req.query.assessmentId === "string" ? req.query.assessmentId : undefined;
+      const sessionId = typeof req.query.sessionId === "string" ? req.query.sessionId : undefined;
+
+      if (sessionId) {
+        const submission = await candidateSessionStore.findSubmissionBySessionId(sessionId);
+        res.json({ submissions: submission ? [submission] : [] });
+        return;
+      }
+
+      const submissions = await candidateSessionStore.listSubmissions({ assessmentId, limit: rawLimit });
+      res.json({ submissions });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown submission list error";
+      logger.error("Failed to list candidate submissions", { message });
+      res.status(500).json({ status: "error", message });
+    }
+  });
+
+  app.get(
+    [
+      "/api/submissions/assessment/:assessmentId",
+      "/api/submissions/assesment/:assessmentId",
+      "/api/submission/assessment/:assessmentId",
+      "/api/submission/assesment/:assessmentId",
+    ],
+    async (req, res) => {
+      try {
+        const rawLimit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+        const submissions = await candidateSessionStore.listSubmissions({
+          assessmentId: req.params.assessmentId,
+          limit: rawLimit,
+        });
+        res.json({ assessmentId: req.params.assessmentId, submissions });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown assessment submission lookup error";
+        logger.error("Failed to fetch assessment submissions", { message });
+        res.status(500).json({ status: "error", message });
+      }
+    },
+  );
+
+  app.get("/api/submission/:submissionId", async (req, res) => {
+    try {
+      const result = await candidateSessionStore.findSubmissionBySubmissionId(req.params.submissionId);
+      if (!result) {
+        res.status(404).json({ status: "error", message: "Submission not found" });
+        return;
+      }
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown submission lookup error";
+      logger.error("Failed to fetch candidate submission", { message });
+      res.status(500).json({ status: "error", message });
+    }
+  });
+
+  app.get("/api/submissions/:submissionId", async (req, res) => {
+    try {
+      const result = await candidateSessionStore.findSubmissionBySubmissionId(req.params.submissionId);
+      if (!result) {
+        res.status(404).json({ status: "error", message: "Submission not found" });
+        return;
+      }
+      res.json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown submission lookup error";
+      logger.error("Failed to fetch candidate submission", { message });
+      res.status(500).json({ status: "error", message });
+    }
+  });
+
+  app.get("/api/evaluations/assessment/:assessmentId", async (req, res) => {
+    try {
+      const rawLimit = typeof req.query.limit === "string" ? Number(req.query.limit) : undefined;
+      const submissions = await candidateSessionStore.listSubmissions({
+        assessmentId: req.params.assessmentId,
+        limit: rawLimit,
+      });
+      res.json({ assessmentId: req.params.assessmentId, submissions });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown assessment evaluation lookup error";
+      logger.error("Failed to fetch assessment evaluation results", { message });
+      res.status(500).json({ status: "error", message });
+    }
+  });
+
   app.get("/api/evaluations/:sessionId", async (req, res) => {
     try {
       const result = await candidateSessionStore.findSubmissionBySessionId(req.params.sessionId);

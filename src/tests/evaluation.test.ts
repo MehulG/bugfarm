@@ -40,6 +40,33 @@ test("candidate session store records submit token and submission lookup", async
   assert.equal(fetched.submitNotes, "Fixed the bug and ran the visible test suite.");
 });
 
+test("candidate session store lists full submissions by assessment", async () => {
+  const store = new CandidateSessionStore(":memory:", "https://backend.example.com");
+  const created = await store.createPendingSession({
+    assessmentId: "assessment-123",
+    artifactPath: "/tmp/artifact",
+  });
+
+  await store.createSubmission({
+    submissionId: "submission-1",
+    sessionId: created.record.sessionId,
+    assessmentId: created.record.assessmentId,
+    submitNotes: "Fixed the bug.",
+  });
+
+  const submissions = await store.listSubmissions({ assessmentId: "assessment-123" });
+  const byId = await store.findSubmissionBySubmissionId("submission-1");
+
+  assert.equal(submissions.length, 1);
+  assert.equal(submissions[0].submissionId, "submission-1");
+  assert.equal(submissions[0].sessionId, created.record.sessionId);
+  assert.equal(submissions[0].assessmentId, "assessment-123");
+  assert.equal(submissions[0].status, "queued");
+  assert.equal(submissions[0].submitNotes, "Fixed the bug.");
+  assert.deepEqual(byId, submissions[0]);
+  assert.deepEqual(await store.listSubmissions({ assessmentId: "missing" }), []);
+});
+
 test("queueCandidateSubmission is stable for repeat submits", async () => {
   const store = new CandidateSessionStore(":memory:", "https://backend.example.com");
   const created = await store.createPendingSession({
