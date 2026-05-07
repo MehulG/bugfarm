@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { getChangedFiles } from "../bugfarm/git.js";
+import { getChangedFiles } from "../codesheep/git.js";
 import { runCursorAgent } from "../cursor/client.js";
 import { evaluateSubmittedRepoAgainstHiddenTests } from "../assessment/hiddenTests.js";
 import { loadAssessmentMetadata } from "../assessment/generateTests.js";

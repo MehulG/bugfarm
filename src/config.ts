@@ -51,7 +51,7 @@ export const config: AppConfig = {
   repoScanMaxFiles: numberFromEnv("REPO_SCAN_MAX_FILES", 40),
   repoScanMaxChars: numberFromEnv("REPO_SCAN_MAX_CHARS", 150000),
   assessmentOutputDir: process.env.ASSESSMENT_OUTPUT_DIR || "./artifacts",
-  databasePath: process.env.DATABASE_PATH || "./bugfarm.sqlite",
+  databasePath: process.env.DATABASE_PATH || "./codesheep.sqlite",
   publicBackendUrl: process.env.PUBLIC_BACKEND_URL || `http://localhost:${numberFromEnv("PORT", 3000)}`,
   coderUrl: process.env.CODER_URL,
   coderApiUrl: process.env.CODER_API_URL || process.env.CODER_URL,
@@ -63,6 +63,6 @@ export const config: AppConfig = {
   aiUpstreamBaseUrl: process.env.AI_UPSTREAM_BASE_URL || "https://api.openai.com/v1",
   aiUpstreamApiKey: process.env.AI_UPSTREAM_API_KEY,
   aiUpstreamModel: process.env.AI_UPSTREAM_MODEL,
-  aiPublicModelName: process.env.AI_PUBLIC_MODEL_NAME || "bugfarm-ai",
+  aiPublicModelName: process.env.AI_PUBLIC_MODEL_NAME || "codesheep-ai",
   aiSessionRequestLimit: numberFromEnv("AI_SESSION_REQUEST_LIMIT", 100),
 };

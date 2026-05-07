@@ -1,6 +1,6 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
-import { getChangedFiles } from "../bugfarm/git.js";
+import { getChangedFiles } from "../codesheep/git.js";
 import { writeAssessmentMetadata } from "./artifacts.js";
 import { createAndValidateHiddenTests } from "./hiddenTests.js";
 import type {

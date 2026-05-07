@@ -32,7 +32,7 @@ test("candidate session store records and detects expired launch sessions", asyn
 });
 
 test("candidate artifact zip includes repo README instructions and excludes non-candidate folders", async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "bugfarm-artifact-"));
+  const root = await mkdtemp(path.join(os.tmpdir(), "codesheep-artifact-"));
   await mkdir(path.join(root, "candidate-repo", "src"), { recursive: true });
   await mkdir(path.join(root, "candidate"), { recursive: true });
   await mkdir(path.join(root, "hidden-tests"), { recursive: true });
@@ -48,7 +48,7 @@ test("candidate artifact zip includes repo README instructions and excludes non-
 
   assert.deepEqual(Object.keys(entries).sort(), ["AI_ASSISTANT.md", "README.md", "src/app.ts"]);
   assert.match(entries["README.md"].toString("utf8"), /Fix the login bug/);
-  assert.match(entries["README.md"].toString("utf8"), /bugfarm-ai/);
+  assert.match(entries["README.md"].toString("utf8"), /codesheep-ai/);
   assert.match(entries["AI_ASSISTANT.md"].toString("utf8"), /Cline is preconfigured/);
   assert.match(entries["AI_ASSISTANT.md"].toString("utf8"), /OpenAI Compatible/);
   assert.match(entries["README.md"].toString("utf8"), /Original README/);
@@ -86,7 +86,7 @@ test("Coder client sends user and workspace creation request shapes", async () =
     await client.createUser({
       username: "candidate-abc",
       password: "password",
-      email: "candidate-abc@bugfarm.local",
+      email: "candidate-abc@codesheep.local",
       name: "Candidate candidate-abc",
     });
     await client.createWorkspace({
@@ -105,7 +105,7 @@ test("Coder client sends user and workspace creation request shapes", async () =
   assert.equal(calls[0].url, "https://coder-api.example.com/api/v2/users");
   assert.deepEqual(calls[0].body, {
     username: "candidate-abc",
-    email: "candidate-abc@bugfarm.local",
+    email: "candidate-abc@codesheep.local",
     name: "Candidate candidate-abc",
     password: "password",
     login_type: "password",

@@ -8,8 +8,8 @@ code-server opened at `/home/coder/project`.
 The code-server Coder app is shared publicly so candidate launch links can
 redirect to code-server without requiring a separate Coder login.
 The workspace also installs the Cline extension, configures it to use the
-BugFarm backend AI proxy, skips Cline onboarding by writing Cline's state files,
-and installs a `bugfarm-ai` terminal fallback command. Real provider API keys
+Codesheep backend AI proxy, skips Cline onboarding by writing Cline's state files,
+and installs a `codesheep-ai` terminal fallback command. Real provider API keys
 are never written into the workspace.
 
 If Cline cannot be installed, workspace startup fails before code-server starts.
@@ -25,7 +25,7 @@ The backend should create the Coder workspace with these immutable parameters:
 - `artifact_hash`: artifact identifier used in the artifact download URL.
 - `session_id`: assessment session ID passed as a query parameter.
 - `artifact_token`: bearer token used to download the artifact.
-- `ai_proxy_token`: bearer token used by Cline and `bugfarm-ai` to call the backend AI proxy.
+- `ai_proxy_token`: bearer token used by Cline and `codesheep-ai` to call the backend AI proxy.
 
 The template admin must also configure:
 
@@ -86,7 +86,7 @@ Coder template downloads artifact zip on first startup
         ↓
 Workspace extracts files into /home/coder/project
         ↓
-Workspace installs Cline, writes Cline state/secrets, and installs bugfarm-ai
+Workspace installs Cline, writes Cline state/secrets, and installs codesheep-ai
         ↓
 Candidate opens code-server
         ↓
@@ -113,7 +113,7 @@ token. Verify:
   real provider API key.
 - The workspace environment contains `CLINE_DIR=/home/coder/.cline` so
   code-server's extension host reads the preseeded Cline state.
-- `bugfarm-ai "Say hello"` works from the terminal.
+- `codesheep-ai "Say hello"` works from the terminal.
 - `AI_ASSISTANT.md` exists in `/home/coder/project` and explains that Cline is
   preconfigured.
 - Candidate-created files remain after workspace restart.

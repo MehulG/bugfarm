@@ -9,8 +9,8 @@ import type {
   GenerateTestsRequest,
 } from "./assessment/types.js";
 import { validateGenerateAssessmentRequest } from "./assessment/generateAssessment.js";
-import { seedBug, validateSeedBugRequest } from "./bugfarm/seedBug.js";
-import type { SeedBugError, SeedBugRequest } from "./bugfarm/types.js";
+import { seedBug, validateSeedBugRequest } from "./codesheep/seedBug.js";
+import type { SeedBugError, SeedBugRequest } from "./codesheep/types.js";
 import { jobStore } from "./jobs/store.js";
 import type { JobOperation } from "./jobs/types.js";
 import { openApiDocument } from "./openapi.js";
@@ -43,7 +43,7 @@ export function createServer(): express.Express {
     "/docs",
     apiReference({
       content: openApiDocument,
-      pageTitle: "BugFarm API Reference",
+      pageTitle: "Codesheep API Reference",
       theme: "default",
     }),
   );

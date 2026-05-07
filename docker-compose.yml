@@ -1,22 +1,22 @@
 services:
-  bugfarm:
+  codesheep:
     build:
       context: .
       dockerfile: Dockerfile
-    image: bugfarm-poc:local
+    image: codesheep-poc:local
     restart: unless-stopped
     env_file:
       - .env
     environment:
       PORT: "3000"
-      ASSESSMENT_OUTPUT_DIR: /var/lib/bugfarm/artifacts
-      DATABASE_PATH: /var/lib/bugfarm/bugfarm.sqlite
+      ASSESSMENT_OUTPUT_DIR: /var/lib/codesheep/artifacts
+      DATABASE_PATH: /var/lib/codesheep/codesheep.sqlite
     ports:
       - "3000:3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - bugfarm-data:/var/lib/bugfarm
+      - codesheep-data:/var/lib/codesheep
 
 volumes:
-  bugfarm-data:
+  codesheep-data:

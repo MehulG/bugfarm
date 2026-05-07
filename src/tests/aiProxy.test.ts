@@ -9,7 +9,7 @@ const testAiConfig = {
   aiUpstreamBaseUrl: "https://ai-upstream.example.com/v1",
   aiUpstreamApiKey: "upstream-secret",
   aiUpstreamModel: "gpt-test",
-  aiPublicModelName: "bugfarm-ai",
+  aiPublicModelName: "codesheep-ai",
   aiSessionRequestLimit: 10,
 };
 
@@ -31,10 +31,10 @@ test("AI models endpoint validates scoped token and hides upstream model", async
     object: "list",
     data: [
       {
-        id: "bugfarm-ai",
+        id: "codesheep-ai",
         object: "model",
         created: 0,
-        owned_by: "bugfarm",
+        owned_by: "codesheep",
       },
     ],
   });

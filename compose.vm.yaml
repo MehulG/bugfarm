@@ -38,20 +38,20 @@ services:
       retries: 5
     restart: unless-stopped
 
-  bugfarm:
+  codesheep:
     build:
       context: .
       dockerfile: Dockerfile
-    image: bugfarm-poc:local
+    image: codesheep-poc:local
     restart: unless-stopped
     group_add:
       - "${DOCKER_GID:-113}"
     env_file:
-      - ${BUGFARM_ENV_FILE:-.env.vm}
+      - ${CODESHEEP_ENV_FILE:-.env.vm}
     environment:
       PORT: "3000"
-      ASSESSMENT_OUTPUT_DIR: /var/lib/bugfarm/artifacts
-      DATABASE_PATH: /var/lib/bugfarm/bugfarm.sqlite
+      ASSESSMENT_OUTPUT_DIR: /var/lib/codesheep/artifacts
+      DATABASE_PATH: /var/lib/codesheep/codesheep.sqlite
       PUBLIC_BACKEND_URL: "${PUBLIC_BACKEND_URL}"
       CODER_URL: "${CODER_ACCESS_URL}"
       CODER_API_URL: "${CODER_API_URL:-http://host.docker.internal:7080}"
@@ -62,7 +62,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./data:/var/lib/bugfarm
+      - ./data:/var/lib/codesheep
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - coder

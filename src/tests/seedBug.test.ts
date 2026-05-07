@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildBugReportRepairPrompt } from "../bugfarm/seedBug.js";
+import { buildBugReportRepairPrompt } from "../codesheep/seedBug.js";
 
 test("buildBugReportRepairPrompt asks for report-only recovery", () => {
   const prompt = buildBugReportRepairPrompt({

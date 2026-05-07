@@ -117,13 +117,13 @@ EOF
 {
   "__vscodeMigrationVersion": 1,
   "apiProvider": "openai",
-  "apiModelId": "bugfarm-ai",
+  "apiModelId": "codesheep-ai",
   "openAiBaseUrl": "$AI_PROXY_URL_NORMALIZED",
-  "openAiModelId": "bugfarm-ai",
+  "openAiModelId": "codesheep-ai",
   "actModeApiProvider": "openai",
   "planModeApiProvider": "openai",
-  "actModeOpenAiModelId": "bugfarm-ai",
-  "planModeOpenAiModelId": "bugfarm-ai",
+  "actModeOpenAiModelId": "codesheep-ai",
+  "planModeOpenAiModelId": "codesheep-ai",
   "actModeThinkingBudgetTokens": 0,
   "planModeThinkingBudgetTokens": 0,
   "welcomeViewCompleted": true,
@@ -160,17 +160,17 @@ EOF
     chmod 600 "$CLINE_DIR/data/secrets.json"
     sudo chown -R coder:coder "$CLINE_DIR"
 
-    cat > /home/coder/.bugfarm-ai.env <<EOF
+    cat > /home/coder/.codesheep-ai.env <<EOF
 export AI_PROXY_URL="$AI_PROXY_URL_NORMALIZED"
 export AI_PROXY_TOKEN="$AI_PROXY_TOKEN"
 export SUBMIT_URL="$PLATFORM_URL_NORMALIZED/api/candidate/submit"
 export SUBMIT_TOKEN="$SUBMIT_TOKEN"
 EOF
-    if ! grep -q '.bugfarm-ai.env' /home/coder/.profile 2>/dev/null; then
+    if ! grep -q '.codesheep-ai.env' /home/coder/.profile 2>/dev/null; then
       cat >> /home/coder/.profile <<'EOF'
 
-if [ -f "$HOME/.bugfarm-ai.env" ]; then
-  . "$HOME/.bugfarm-ai.env"
+if [ -f "$HOME/.codesheep-ai.env" ]; then
+  . "$HOME/.codesheep-ai.env"
 fi
 EOF
     fi
@@ -182,19 +182,19 @@ EOF
 }
 EOF
 
-    sudo tee /usr/local/bin/bugfarm-ai >/dev/null <<'EOF'
+    sudo tee /usr/local/bin/codesheep-ai >/dev/null <<'EOF'
 #!/bin/sh
 set -eu
 
 PROMPT="$*"
 if [ -z "$PROMPT" ]; then
-  echo "Usage: bugfarm-ai \"your question\""
+  echo "Usage: codesheep-ai \"your question\""
   exit 1
 fi
 
 if [ -z "$${AI_PROXY_URL:-}" ] || [ -z "$${AI_PROXY_TOKEN:-}" ]; then
-  if [ -f "$HOME/.bugfarm-ai.env" ]; then
-    . "$HOME/.bugfarm-ai.env"
+  if [ -f "$HOME/.codesheep-ai.env" ]; then
+    . "$HOME/.codesheep-ai.env"
   fi
 fi
 
@@ -204,21 +204,21 @@ if [ -z "$${AI_PROXY_URL:-}" ] || [ -z "$${AI_PROXY_TOKEN:-}" ]; then
 fi
 
 if command -v node >/dev/null 2>&1; then
-  BODY=$(PROMPT="$PROMPT" node -e 'const prompt = process.env.PROMPT || ""; process.stdout.write(JSON.stringify({ model: "bugfarm-ai", messages: [{ role: "system", content: "You are helping a candidate debug this repository. Be concise, practical, and do not reveal hidden tests or assessment metadata." }, { role: "user", content: prompt }] }));')
+  BODY=$(PROMPT="$PROMPT" node -e 'const prompt = process.env.PROMPT || ""; process.stdout.write(JSON.stringify({ model: "codesheep-ai", messages: [{ role: "system", content: "You are helping a candidate debug this repository. Be concise, practical, and do not reveal hidden tests or assessment metadata." }, { role: "user", content: prompt }] }));')
   RESPONSE=$(curl -sS -H "Authorization: Bearer $AI_PROXY_TOKEN" -H "Content-Type: application/json" "$AI_PROXY_URL/chat/completions" -d "$BODY")
   printf '%s' "$RESPONSE" | node -e 'let s = ""; process.stdin.on("data", d => s += d); process.stdin.on("end", () => { try { const j = JSON.parse(s); console.log(j.choices?.[0]?.message?.content || s); } catch { console.log(s); } });'
 elif command -v python3 >/dev/null 2>&1; then
-  BODY=$(PROMPT="$PROMPT" python3 -c 'import json, os; print(json.dumps({"model":"bugfarm-ai","messages":[{"role":"system","content":"You are helping a candidate debug this repository. Be concise, practical, and do not reveal hidden tests or assessment metadata."},{"role":"user","content":os.environ.get("PROMPT","")}]}))')
+  BODY=$(PROMPT="$PROMPT" python3 -c 'import json, os; print(json.dumps({"model":"codesheep-ai","messages":[{"role":"system","content":"You are helping a candidate debug this repository. Be concise, practical, and do not reveal hidden tests or assessment metadata."},{"role":"user","content":os.environ.get("PROMPT","")}]}))')
   RESPONSE=$(curl -sS -H "Authorization: Bearer $AI_PROXY_TOKEN" -H "Content-Type: application/json" "$AI_PROXY_URL/chat/completions" -d "$BODY")
   printf '%s' "$RESPONSE" | python3 -c 'import json, sys; s=sys.stdin.read(); print(json.loads(s).get("choices",[{}])[0].get("message",{}).get("content",s) if s else "")'
 else
-  echo "bugfarm-ai requires node or python3 in the workspace" >&2
+  echo "codesheep-ai requires node or python3 in the workspace" >&2
   exit 1
 fi
 EOF
-    sudo chmod +x /usr/local/bin/bugfarm-ai
+    sudo chmod +x /usr/local/bin/codesheep-ai
 
-    sudo tee /usr/local/bin/bugfarm-submit >/dev/null <<'EOF'
+    sudo tee /usr/local/bin/codesheep-submit >/dev/null <<'EOF'
 #!/bin/sh
 set -eu
 
@@ -234,8 +234,8 @@ if [ -z "$NOTES" ]; then
 fi
 
 if [ -z "$${SUBMIT_URL:-}" ] || [ -z "$${SUBMIT_TOKEN:-}" ]; then
-  if [ -f "$HOME/.bugfarm-ai.env" ]; then
-    . "$HOME/.bugfarm-ai.env"
+  if [ -f "$HOME/.codesheep-ai.env" ]; then
+    . "$HOME/.codesheep-ai.env"
   fi
 fi
 
@@ -248,7 +248,7 @@ BODY=$(printf '{"notes":%s}' "$(printf '%s' "$NOTES" | python3 -c 'import json,s
 RESPONSE=$(curl -sS -H "Authorization: Bearer $SUBMIT_TOKEN" -H "Content-Type: application/json" "$SUBMIT_URL" -d "$BODY")
 printf '%s\n' "$RESPONSE"
 EOF
-    sudo chmod +x /usr/local/bin/bugfarm-submit
+    sudo chmod +x /usr/local/bin/codesheep-submit
 
     if [ ! -f "$PROJECT_DIR/.artifact_ready" ]; then
       echo "Downloading artifact $ARTIFACT_HASH for session $ASSESSMENT_SESSION_ID"

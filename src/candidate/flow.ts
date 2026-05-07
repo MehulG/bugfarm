@@ -158,7 +158,7 @@ async function ensureCandidateWorkspace(input: {
     const user = await coder.createUser({
       username: coderUsername,
       password: coderPassword,
-      email: `${coderUsername}@bugfarm.local`,
+      email: `${coderUsername}@codesheep.local`,
       name: `Candidate ${coderUsername}`,
     });
     const workspace = await coder.createWorkspace({

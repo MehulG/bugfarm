@@ -1,4 +1,4 @@
-import type { BugDifficulty, SeedBugRequest } from "../bugfarm/types.js";
+import type { BugDifficulty, SeedBugRequest } from "../codesheep/types.js";
 
 export type GenerateBugRequest = SeedBugRequest & {
   role?: string;

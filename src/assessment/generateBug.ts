@@ -1,8 +1,8 @@
 import { copyFile } from "node:fs/promises";
 import path from "node:path";
-import { seedBug } from "../bugfarm/seedBug.js";
-import { resolveRepoTarget } from "../bugfarm/repoTarget.js";
-import { getChangedFiles } from "../bugfarm/git.js";
+import { seedBug } from "../codesheep/seedBug.js";
+import { resolveRepoTarget } from "../codesheep/repoTarget.js";
+import { getChangedFiles } from "../codesheep/git.js";
 import {
   buildRubric,
   createArtifactPaths,
@@ -27,7 +27,7 @@ export async function generateBugArtifact(
 ): Promise<GenerateBugSuccess> {
   validateGenerateBugRequest(request);
 
-  const assessmentName = request.assessmentName || "BugFarm Debugging Assessment";
+  const assessmentName = request.assessmentName || "Codesheep Debugging Assessment";
   const repoTarget = await resolveRepoTarget(request.repoPath);
   const artifactPaths = await createArtifactPaths(assessmentName);
   await initializeArtifactWorkspace(artifactPaths.artifactPath);

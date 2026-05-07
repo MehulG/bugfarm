@@ -1,8 +1,8 @@
-# One-pager for Codex: BugFarm POC using Cursor SDK
+# One-pager for Codex: Codesheep POC using Cursor SDK
 
 ## Goal
 
-Build a first POC called **BugFarm**: an HTTP-triggered Node.js/TypeScript service that uses **Cursor SDK** to intentionally seed one realistic, non-malicious bug into a local Git repository.
+Build a first POC called **Codesheep**: an HTTP-triggered Node.js/TypeScript service that uses **Cursor SDK** to intentionally seed one realistic, non-malicious bug into a local Git repository.
 
 This is for evaluating AI coding agents on real repos.
 
@@ -33,7 +33,7 @@ Code must be modular.
 ## Project Structure
 
 ```text
-bugfarm-poc/
+codesheep-poc/
   package.json
   tsconfig.json
   .env.example
@@ -45,7 +45,7 @@ bugfarm-poc/
     config.ts
     cursor/
       client.ts
-    bugfarm/
+    codesheep/
       seedBug.ts
       repoScanner.ts
       git.ts
@@ -69,7 +69,7 @@ Load env in `src/config.ts`.
 Create `prompts/seed-bug.md`:
 
 ```text
-You are BugFarm, a repo bug-seeding agent for AI coding-agent evaluation.
+You are Codesheep, a repo bug-seeding agent for AI coding-agent evaluation.
 
 Introduce exactly one realistic intentional bug into this repository.
 
@@ -190,7 +190,7 @@ Cursor SDK must be the primary execution path. Do not implement raw OpenAI calls
 
 ## Repo Scanner
 
-Create `src/bugfarm/repoScanner.ts`.
+Create `src/codesheep/repoScanner.ts`.
 
 It should:
 
@@ -220,7 +220,7 @@ Limit context to avoid huge prompts, for example max 40 files or 150k chars.
 
 ## Git Helper
 
-Create `src/bugfarm/git.ts`.
+Create `src/codesheep/git.ts`.
 
 Expose:
 
@@ -240,7 +240,7 @@ This is used after Cursor SDK finishes editing.
 
 ## Main Seeder Flow
 
-Create `src/bugfarm/seedBug.ts`.
+Create `src/codesheep/seedBug.ts`.
 
 Flow:
 
@@ -265,7 +265,7 @@ Flow:
 
 ## Types
 
-Create `src/bugfarm/types.ts`:
+Create `src/codesheep/types.ts`:
 
 ```ts
 export type SeedBugRequest = {

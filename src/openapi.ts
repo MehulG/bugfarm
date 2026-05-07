@@ -3,7 +3,7 @@ import { config } from "./config.js";
 export const openApiDocument = {
   openapi: "3.1.0",
   info: {
-    title: "BugFarm POC API",
+    title: "Codesheep POC API",
     version: "0.1.0",
     description:
       "HTTP API for seeding realistic, non-malicious bugs into a local or GitHub repository with Cursor SDK.",

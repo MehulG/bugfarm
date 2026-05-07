@@ -1,6 +1,6 @@
-# BugFarm POC
+# Codesheep POC
 
-BugFarm is an HTTP-triggered Node.js/TypeScript service that uses the Cursor SDK to seed realistic, non-malicious bugs into a local Git repository or a temporary clone of a GitHub repository. It is intended for evaluating AI coding agents on real codebases.
+Codesheep is an HTTP-triggered Node.js/TypeScript service that uses the Cursor SDK to seed realistic, non-malicious bugs into a local Git repository or a temporary clone of a GitHub repository. It is intended for evaluating AI coding agents on real codebases.
 
 ## Requirements
 
@@ -30,7 +30,7 @@ CURSOR_API_KEY=your_cursor_api_key_here
 MODEL_NAME=default
 PORT=3000
 ASSESSMENT_OUTPUT_DIR=./artifacts
-DATABASE_PATH=./bugfarm.sqlite
+DATABASE_PATH=./codesheep.sqlite
 PUBLIC_BACKEND_URL=http://localhost:3000
 CODER_URL=https://coder.yourdomain.com
 CODER_API_URL=https://coder.yourdomain.com
@@ -42,7 +42,7 @@ AI_PROXY_ENABLED=true
 AI_UPSTREAM_BASE_URL=https://api.openai.com/v1
 AI_UPSTREAM_API_KEY=your_ai_provider_api_key_here
 AI_UPSTREAM_MODEL=your_ai_model_here
-AI_PUBLIC_MODEL_NAME=bugfarm-ai
+AI_PUBLIC_MODEL_NAME=codesheep-ai
 AI_SESSION_REQUEST_LIMIT=100
 ```
 
@@ -91,7 +91,7 @@ It also imports `CURSOR_API_KEY`, `AI_UPSTREAM_API_KEY`, and
 The script starts Coder, pushes `coder template` with `platform_url`, discovers
 the Coder organization/template IDs, writes them back into `.env.vm`, and starts
 the backend. It also fixes ownership on `./data` for the container runtime user
-before starting BugFarm. Backend data and generated artifacts are stored under
+before starting Codesheep. Backend data and generated artifacts are stored under
 `./data`.
 
 ## API
@@ -145,7 +145,7 @@ Only `repoPath` is required. It can be an absolute local path, a GitHub URL, an 
 
 `bugDiversification` is optional, defaults to `true`, and tells the bug-seeding prompt to prefer materially different bug categories or failure modes when multiple bugs are requested.
 
-GitHub repositories are cloned into a temporary local directory under `/tmp`; BugFarm does not push changes back to GitHub.
+GitHub repositories are cloned into a temporary local directory under `/tmp`; Codesheep does not push changes back to GitHub.
 
 This endpoint is asynchronous. It returns `202 Accepted` with a job id and poll URL.
 
@@ -210,13 +210,13 @@ Succeeded job response:
   "result": {
     "status": "success",
     "requestedRepoPath": "owner/repo",
-    "repoPath": "/tmp/bugfarm-abcd12/owner-repo",
+    "repoPath": "/tmp/codesheep-abcd12/owner-repo",
     "repoSource": "github",
     "summary": "Seeded a realistic intentional bug",
     "difficulty": "medium",
     "bugCount": 1,
     "filesChanged": ["src/auth/session.ts", "BUG_REPORT.md"],
-    "bugReportPath": "/tmp/bugfarm-abcd12/owner-repo/BUG_REPORT.md"
+    "bugReportPath": "/tmp/codesheep-abcd12/owner-repo/BUG_REPORT.md"
   }
 }
 ```
@@ -244,7 +244,7 @@ Request:
 
 This endpoint is asynchronous. It creates a local assessment artifact under `ASSESSMENT_OUTPUT_DIR`, but only returns jobs whose hidden-test validation eventually succeeds.
 
-On success, BugFarm also creates a pending candidate launch session and returns
+On success, Codesheep also creates a pending candidate launch session and returns
 `candidateLaunchUrl`. Opening that secret URL provisions a Coder user and
 workspace for the candidate.
 
@@ -254,8 +254,8 @@ VM as the backend container, set it to `http://host.docker.internal:7080`.
 
 ### Candidate AI Proxy
 
-Candidate workspaces can use Cline inside code-server, or the `bugfarm-ai`
-terminal fallback command, through BugFarm's OpenAI-compatible proxy:
+Candidate workspaces can use Cline inside code-server, or the `codesheep-ai`
+terminal fallback command, through Codesheep's OpenAI-compatible proxy:
 
 ```http
 GET /v1/models
@@ -265,7 +265,7 @@ Authorization: Bearer <ai_proxy_token>
 
 The backend generates one `ai_proxy_token` per candidate session, stores only
 its hash, and passes the raw token into the Coder workspace. Cline and
-`bugfarm-ai` use that token as their API key and point at
+`codesheep-ai` use that token as their API key and point at
 `PUBLIC_BACKEND_URL/v1`.
 
 Real provider credentials must stay only in the backend environment:
@@ -274,7 +274,7 @@ Real provider credentials must stay only in the backend environment:
 AI_UPSTREAM_BASE_URL=https://api.openai.com/v1
 AI_UPSTREAM_API_KEY=...
 AI_UPSTREAM_MODEL=...
-AI_PUBLIC_MODEL_NAME=bugfarm-ai
+AI_PUBLIC_MODEL_NAME=codesheep-ai
 AI_SESSION_REQUEST_LIMIT=100
 ```
 
@@ -438,9 +438,9 @@ session-scoped artifact token and returns a zip containing only the candidate
 repo. The zip includes candidate instructions in the root `README.md` and
 excludes hidden tests, reports, rubric, baseline repo, and assessment metadata.
 
-For this milestone, hidden tests are deterministic and non-candidate-facing. BugFarm asks Cursor to generate a wrapper plus `hidden-tests/spec.json`, captures expected outputs from `baseline-repo`, and then requires `candidate-repo` to diverge on bug-exposing cases while matching baseline on control cases.
+For this milestone, hidden tests are deterministic and non-candidate-facing. Codesheep asks Cursor to generate a wrapper plus `hidden-tests/spec.json`, captures expected outputs from `baseline-repo`, and then requires `candidate-repo` to diverge on bug-exposing cases while matching baseline on control cases.
 
-Candidate submission is explicit in v1. The workspace includes `bugfarm-submit`
+Candidate submission is explicit in v1. The workspace includes `codesheep-submit`
 and the launch page exposes a submit button. Submission captures candidate notes,
 snapshots `/home/coder/project`, evaluates the snapshot against the hidden-test
 bundle plus rubric dimensions, stores the result, and then requests a workspace
@@ -501,7 +501,7 @@ For `/generate-assessment`:
 
 ## Notes
 
-- BugFarm intentionally edits the target repository. Use a disposable branch or sample repo when testing.
+- Codesheep intentionally edits the target repository. Use a disposable branch or sample repo when testing.
 - Async job state is stored in memory. Jobs do not survive a process restart.
 - The prompt instructs Cursor to introduce the requested number of realistic bugs and to avoid malicious, destructive, or hidden behavior.
 - Supported source extensions for scan context are `.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.go`, `.rs`, `.java`, and `.sol`.

@@ -3,7 +3,7 @@ import type {
   GenerateBugSuccess,
   GenerateTestsSuccess,
 } from "../assessment/types.js";
-import type { SeedBugSuccess } from "../bugfarm/types.js";
+import type { SeedBugSuccess } from "../codesheep/types.js";
 
 export type JobOperation =
   | "seed-bug"

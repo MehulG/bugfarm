@@ -58,7 +58,7 @@ export async function handleAiModels(
         id: aiConfig.aiPublicModelName,
         object: "model",
         created: 0,
-        owned_by: "bugfarm",
+        owned_by: "codesheep",
       },
     ],
   });

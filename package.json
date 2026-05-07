@@ -1,7 +1,7 @@
 {
-  "name": "bugfarm-poc",
+  "name": "codesheep-poc",
   "version": "0.1.0",
-  "description": "HTTP-triggered BugFarm POC for seeding realistic bugs into local repositories with Cursor SDK.",
+  "description": "HTTP-triggered Codesheep POC for seeding realistic bugs into local repositories with Cursor SDK.",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

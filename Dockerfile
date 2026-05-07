@@ -21,8 +21,8 @@ FROM node:22-bookworm-slim AS runtime
 
 ENV NODE_ENV=production \
   PORT=3000 \
-  ASSESSMENT_OUTPUT_DIR=/var/lib/bugfarm/artifacts \
-  DATABASE_PATH=/var/lib/bugfarm/bugfarm.sqlite
+  ASSESSMENT_OUTPUT_DIR=/var/lib/codesheep/artifacts \
+  DATABASE_PATH=/var/lib/codesheep/codesheep.sqlite
 
 WORKDIR /app
 
@@ -33,8 +33,8 @@ RUN apt-get update \
     git \
     python3 \
   && rm -rf /var/lib/apt/lists/* \
-  && mkdir -p /var/lib/bugfarm/artifacts \
-  && chown -R node:node /var/lib/bugfarm /app
+  && mkdir -p /var/lib/codesheep/artifacts \
+  && chown -R node:node /var/lib/codesheep /app
 
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist

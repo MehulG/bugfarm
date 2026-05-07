@@ -120,24 +120,24 @@ require_command python3
 CODER_TEMPLATE_NAME="${CODER_TEMPLATE_NAME:-artifact-template}"
 CODER_API_URL="${CODER_API_URL:-http://host.docker.internal:7080}"
 CODER_CLI_URL="${CODER_CLI_URL:-http://127.0.0.1:7080}"
-CODER_ADMIN_EMAIL="${CODER_ADMIN_EMAIL:-admin@bugfarm.ai}"
+CODER_ADMIN_EMAIL="${CODER_ADMIN_EMAIL:-admin@codesheep.ai}"
 CODER_ADMIN_USERNAME="${CODER_ADMIN_USERNAME:-admin}"
-CODER_ADMIN_FULL_NAME="${CODER_ADMIN_FULL_NAME:-BugFarm Admin}"
+CODER_ADMIN_FULL_NAME="${CODER_ADMIN_FULL_NAME:-Codesheep Admin}"
 CODER_ADMIN_PASSWORD="${CODER_ADMIN_PASSWORD:-Admin@1234567890}"
 CODER_API_TOKEN_LIFETIME="${CODER_API_TOKEN_LIFETIME:-168h}"
 CODER_WORKSPACE_TTL_MS="${CODER_WORKSPACE_TTL_MS:-14400000}"
-BUGFARM_HOST_UID="${BUGFARM_HOST_UID:-1000}"
-BUGFARM_HOST_GID="${BUGFARM_HOST_GID:-1000}"
+CODESHEEP_HOST_UID="${CODESHEEP_HOST_UID:-1000}"
+CODESHEEP_HOST_GID="${CODESHEEP_HOST_GID:-1000}"
 AI_PROXY_ENABLED="${AI_PROXY_ENABLED:-true}"
 AI_UPSTREAM_BASE_URL="${AI_UPSTREAM_BASE_URL:-https://api.openai.com/v1}"
-AI_PUBLIC_MODEL_NAME="${AI_PUBLIC_MODEL_NAME:-bugfarm-ai}"
+AI_PUBLIC_MODEL_NAME="${AI_PUBLIC_MODEL_NAME:-codesheep-ai}"
 AI_SESSION_REQUEST_LIMIT="${AI_SESSION_REQUEST_LIMIT:-100}"
 MODEL_NAME="${MODEL_NAME:-default}"
 REPO_SCAN_MAX_FILES="${REPO_SCAN_MAX_FILES:-40}"
 REPO_SCAN_MAX_CHARS="${REPO_SCAN_MAX_CHARS:-150000}"
 
 mkdir -p "$ROOT_DIR/data/artifacts"
-chown -R "$BUGFARM_HOST_UID:$BUGFARM_HOST_GID" "$ROOT_DIR/data" 2>/dev/null || sudo chown -R "$BUGFARM_HOST_UID:$BUGFARM_HOST_GID" "$ROOT_DIR/data"
+chown -R "$CODESHEEP_HOST_UID:$CODESHEEP_HOST_GID" "$ROOT_DIR/data" 2>/dev/null || sudo chown -R "$CODESHEEP_HOST_UID:$CODESHEEP_HOST_GID" "$ROOT_DIR/data"
 
 echo "Starting Coder..."
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d coder-database coder
@@ -182,7 +182,7 @@ if is_placeholder_value "${CODER_API_TOKEN:-}" || ! coder whoami >/dev/null 2>&1
     exit 1
   fi
 
-  token_name="bugfarm-vm-admin-$(date +%Y%m%d%H%M%S)"
+  token_name="codesheep-vm-admin-$(date +%Y%m%d%H%M%S)"
   CODER_API_TOKEN=$(coder tokens create --name "$token_name" --lifetime "$CODER_API_TOKEN_LIFETIME" | tail -n 1)
   if is_placeholder_value "$CODER_API_TOKEN"; then
     echo "Coder login worked, but token creation did not return a token." >&2
@@ -282,11 +282,11 @@ echo "  CODER_ORGANIZATION_ID=$CODER_ORGANIZATION_ID"
 echo "  CODER_TEMPLATE_ID=$CODER_TEMPLATE_ID"
 
 echo "Starting backend..."
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build bugfarm
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build codesheep
 
 echo "Done."
 echo "Backend: $PUBLIC_BACKEND_URL"
 echo "Coder:   $CODER_ACCESS_URL"
 echo
 echo "Check backend logs:"
-echo "docker compose --env-file $ENV_FILE -f $COMPOSE_FILE logs -f bugfarm"
+echo "docker compose --env-file $ENV_FILE -f $COMPOSE_FILE logs -f codesheep"

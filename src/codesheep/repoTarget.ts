@@ -33,7 +33,7 @@ export async function resolveRepoTarget(repoPath: string): Promise<RepoTarget> {
     throw new Error("Repo path does not exist or is not a supported GitHub repo path");
   }
 
-  const cloneRoot = await mkdtemp(path.join(os.tmpdir(), "bugfarm-"));
+  const cloneRoot = await mkdtemp(path.join(os.tmpdir(), "codesheep-"));
   const destinationPath = path.join(cloneRoot, `${githubRepo.owner}-${githubRepo.repo}`);
 
   try {

@@ -1,4 +1,4 @@
-You are BugFarm's hidden-test generator.
+You are Codesheep's hidden-test generator.
 
 You are working inside an assessment artifact root that contains:
 - `baseline-repo/`
