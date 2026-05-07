@@ -57,9 +57,9 @@ function buildCandidateReadme(task?: string, originalReadme?: string): string {
   const parts: string[] = [];
 
   if (task?.trim()) {
-    parts.push(`# Assessment Instructions\n\n${task.trim()}\n\n## AI Assistance\n\nCline is preconfigured in the editor sidebar. You can also use \`codesheep-ai "your question"\` in the terminal. See \`AI_ASSISTANT.md\` for details.\n`);
+    parts.push(`# Assessment Instructions\n\n${task.trim()}\n\n## Submission\n\nWhen you are done, open the Codesheep icon in the left activity bar, describe what you changed and how you verified it, then click **Submit Assessment**.\n\n## AI Assistance\n\nCline is preconfigured in the editor sidebar. You can also use \`codesheep-ai "your question"\` in the terminal. See \`AI_ASSISTANT.md\` for details.\n`);
   } else {
-    parts.push("# Assessment Instructions\n\nFix the issue in this repository.\n\n## AI Assistance\n\nCline is preconfigured in the editor sidebar. You can also use `codesheep-ai \"your question\"` in the terminal. See `AI_ASSISTANT.md` for details.\n");
+    parts.push("# Assessment Instructions\n\nFix the issue in this repository.\n\n## Submission\n\nWhen you are done, open the Codesheep icon in the left activity bar, describe what you changed and how you verified it, then click **Submit Assessment**.\n\n## AI Assistance\n\nCline is preconfigured in the editor sidebar. You can also use `codesheep-ai \"your question\"` in the terminal. See `AI_ASSISTANT.md` for details.\n");
   }
 
   if (originalReadme?.trim()) {
@@ -101,6 +101,12 @@ If Cline ever asks for setup again, choose "Bring my own API key" and use:
 
 These values are scoped to this assessment workspace. They are not real provider
 API keys.
+
+## Submit Your Assessment
+
+Use the Codesheep icon in the left activity bar. Enter notes describing what you
+changed and how you verified it, then click **Submit Assessment**. The
+\`codesheep-submit\` terminal command is available only as a fallback.
 `;
 }
 

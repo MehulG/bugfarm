@@ -9,8 +9,9 @@ The code-server Coder app is shared publicly so candidate launch links can
 redirect to code-server without requiring a separate Coder login.
 The workspace also installs the Cline extension, configures it to use the
 Codesheep backend AI proxy, skips Cline onboarding by writing Cline's state files,
-and installs a `codesheep-ai` terminal fallback command. Real provider API keys
-are never written into the workspace.
+installs a Codesheep submit extension, and installs `codesheep-ai` /
+`codesheep-submit` terminal fallback commands. Real provider API keys are never
+written into the workspace.
 
 If Cline cannot be installed, workspace startup fails before code-server starts.
 That keeps candidate workspaces from opening in a half-configured state.
@@ -26,6 +27,7 @@ The backend should create the Coder workspace with these immutable parameters:
 - `session_id`: assessment session ID passed as a query parameter.
 - `artifact_token`: bearer token used to download the artifact.
 - `ai_proxy_token`: bearer token used by Cline and `codesheep-ai` to call the backend AI proxy.
+- `submit_token`: bearer token used by the Codesheep submit extension and fallback CLI.
 
 The template admin must also configure:
 
@@ -88,9 +90,11 @@ Workspace extracts files into /home/coder/project
         ↓
 Workspace installs Cline, writes Cline state/secrets, and installs codesheep-ai
         ↓
+Workspace installs the Codesheep submit extension
+        ↓
 Candidate opens code-server
         ↓
-Bugged repo and Cline AI assistance are already available
+Bugged repo, Cline AI assistance, and submit panel are already available
 ```
 
 ## Validation
@@ -114,6 +118,11 @@ token. Verify:
 - The workspace environment contains `CLINE_DIR=/home/coder/.cline` so
   code-server's extension host reads the preseeded Cline state.
 - `codesheep-ai "Say hello"` works from the terminal.
+- The Codesheep activity-bar icon is visible in code-server.
+- The Codesheep submit panel accepts notes and submits to the backend.
+- `~/.codesheep-submit.json` exists, is readable only by `coder`, and contains
+  the scoped submit URL/token.
+- `codesheep-submit --notes "test"` remains available as a terminal fallback.
 - `AI_ASSISTANT.md` exists in `/home/coder/project` and explains that Cline is
   preconfigured.
 - Candidate-created files remain after workspace restart.

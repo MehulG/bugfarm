@@ -1,0 +1,45 @@
+{
+  "name": "submit",
+  "displayName": "Codesheep Submit",
+  "description": "Submit a Codesheep assessment from code-server.",
+  "version": "0.1.0",
+  "publisher": "codesheep",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:codesheep.submitView",
+    "onCommand:codesheep.submitAssessment"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codesheep.submitAssessment",
+        "title": "Codesheep: Submit Assessment",
+        "category": "Codesheep"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codesheep-submit",
+          "title": "Codesheep",
+          "icon": "icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "codesheep-submit": [
+        {
+          "id": "codesheep.submitView",
+          "name": "Submit Assessment",
+          "type": "webview"
+        }
+      ]
+    }
+  }
+}

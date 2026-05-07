@@ -166,6 +166,27 @@ export AI_PROXY_TOKEN="$AI_PROXY_TOKEN"
 export SUBMIT_URL="$PLATFORM_URL_NORMALIZED/api/candidate/submit"
 export SUBMIT_TOKEN="$SUBMIT_TOKEN"
 EOF
+    cat > /home/coder/.codesheep-submit.json <<EOF
+{
+  "submitUrl": "$PLATFORM_URL_NORMALIZED/api/candidate/submit",
+  "submitToken": "$SUBMIT_TOKEN"
+}
+EOF
+    chmod 600 /home/coder/.codesheep-submit.json
+    sudo chown coder:coder /home/coder/.codesheep-submit.json
+
+    CODESHEEP_EXTENSION_DIR=/home/coder/.local/share/code-server/extensions/codesheep.submit-0.1.0
+    mkdir -p "$CODESHEEP_EXTENSION_DIR"
+    base64 -d > "$CODESHEEP_EXTENSION_DIR/package.json" <<'EOF'
+${filebase64("${path.module}/extensions/codesheep-submit/package.json")}
+EOF
+    base64 -d > "$CODESHEEP_EXTENSION_DIR/extension.js" <<'EOF'
+${filebase64("${path.module}/extensions/codesheep-submit/extension.js")}
+EOF
+    base64 -d > "$CODESHEEP_EXTENSION_DIR/icon.svg" <<'EOF'
+${filebase64("${path.module}/extensions/codesheep-submit/icon.svg")}
+EOF
+    sudo chown -R coder:coder "$CODESHEEP_EXTENSION_DIR"
     if ! grep -q '.codesheep-ai.env' /home/coder/.profile 2>/dev/null; then
       cat >> /home/coder/.profile <<'EOF'
 
