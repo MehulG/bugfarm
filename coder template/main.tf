@@ -68,10 +68,10 @@ resource "coder_agent" "main" {
     CLINE_DIR=/home/coder/.cline
     export CLINE_DIR
 
-    if ! command -v curl >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1; then
-      echo "Installing curl and unzip..."
+    if ! command -v curl >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
+      echo "Installing curl, unzip, and python3..."
       sudo apt-get update
-      sudo apt-get install -y curl unzip
+      sudo apt-get install -y curl unzip python3
     fi
 
     if ! command -v code-server >/dev/null 2>&1; then
@@ -175,18 +175,62 @@ EOF
     chmod 600 /home/coder/.codesheep-submit.json
     sudo chown coder:coder /home/coder/.codesheep-submit.json
 
-    CODESHEEP_EXTENSION_DIR=/home/coder/.local/share/code-server/extensions/codesheep.submit-0.1.0
-    mkdir -p "$CODESHEEP_EXTENSION_DIR"
-    base64 -d > "$CODESHEEP_EXTENSION_DIR/package.json" <<'EOF'
+    CODESHEEP_EXTENSION_BUILD_DIR=/tmp/codesheep-submit-extension
+    CODESHEEP_EXTENSION_VSIX=/tmp/codesheep-submit.vsix
+    rm -rf "$CODESHEEP_EXTENSION_BUILD_DIR" "$CODESHEEP_EXTENSION_VSIX"
+    mkdir -p "$CODESHEEP_EXTENSION_BUILD_DIR/extension"
+    base64 -d > "$CODESHEEP_EXTENSION_BUILD_DIR/extension/package.json" <<'EOF'
 ${filebase64("${path.module}/extensions/codesheep-submit/package.json")}
 EOF
-    base64 -d > "$CODESHEEP_EXTENSION_DIR/extension.js" <<'EOF'
+    base64 -d > "$CODESHEEP_EXTENSION_BUILD_DIR/extension/extension.js" <<'EOF'
 ${filebase64("${path.module}/extensions/codesheep-submit/extension.js")}
 EOF
-    base64 -d > "$CODESHEEP_EXTENSION_DIR/icon.svg" <<'EOF'
+    base64 -d > "$CODESHEEP_EXTENSION_BUILD_DIR/extension/icon.svg" <<'EOF'
 ${filebase64("${path.module}/extensions/codesheep-submit/icon.svg")}
 EOF
-    sudo chown -R coder:coder "$CODESHEEP_EXTENSION_DIR"
+    cat > "$CODESHEEP_EXTENSION_BUILD_DIR/extension.vsixmanifest" <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011">
+  <Metadata>
+    <Identity Language="en-US" Id="submit" Version="0.1.0" Publisher="codesheep"/>
+    <DisplayName>Codesheep Submit</DisplayName>
+    <Description xml:space="preserve">Submit a Codesheep assessment from code-server.</Description>
+    <Categories>Other</Categories>
+    <Properties>
+      <Property Id="Microsoft.VisualStudio.Code.Engine" Value="^1.80.0"/>
+    </Properties>
+  </Metadata>
+  <Installation>
+    <InstallationTarget Id="Microsoft.VisualStudio.Code"/>
+  </Installation>
+  <Dependencies/>
+  <Assets>
+    <Asset Type="Microsoft.VisualStudio.Code.Manifest" Path="extension/package.json" Addressable="true"/>
+  </Assets>
+</PackageManifest>
+EOF
+    cat > "$CODESHEEP_EXTENSION_BUILD_DIR/[Content_Types].xml" <<'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="json" ContentType="application/json"/>
+  <Default Extension="js" ContentType="application/javascript"/>
+  <Default Extension="svg" ContentType="image/svg+xml"/>
+  <Default Extension="vsixmanifest" ContentType="text/xml"/>
+  <Default Extension="xml" ContentType="text/xml"/>
+</Types>
+EOF
+    (cd "$CODESHEEP_EXTENSION_BUILD_DIR" && python3 -c 'import os, zipfile
+with zipfile.ZipFile("'"$CODESHEEP_EXTENSION_VSIX"'", "w", zipfile.ZIP_DEFLATED) as zf:
+    for root, _, files in os.walk("."):
+        for name in files:
+            path = os.path.join(root, name)
+            zf.write(path, path[2:] if path.startswith("./") else path)
+')
+    code-server --install-extension "$CODESHEEP_EXTENSION_VSIX" --force
+    if ! code-server --list-extensions | grep -qi '^codesheep.submit$'; then
+      echo "Codesheep submit extension failed to install" >&2
+      exit 1
+    fi
     if ! grep -q '.codesheep-ai.env' /home/coder/.profile 2>/dev/null; then
       cat >> /home/coder/.profile <<'EOF'
 
