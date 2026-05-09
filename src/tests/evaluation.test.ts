@@ -4,6 +4,7 @@ import { CandidateSessionStore } from "../candidate/store.js";
 import { hashToken } from "../candidate/tokens.js";
 import { queueCandidateSubmission, computeOverallScore } from "../candidate/evaluation.js";
 import { attachCalculationDetails } from "../candidate/evaluationDetails.js";
+import { CandidateGitPreflightError } from "../candidate/gitSubmission.js";
 import { summarizeSubmittedCaseResults } from "../assessment/hiddenTests.js";
 
 test("candidate session store records submit token and submission lookup", async () => {
@@ -97,6 +98,7 @@ test("queueCandidateSubmission is stable for repeat submits", async () => {
     notes: "Investigated and fixed it.",
     store,
     coder: fakeCoder,
+    gitPreflight: async () => {},
   });
   const second = await queueCandidateSubmission({
     record: {
@@ -106,10 +108,45 @@ test("queueCandidateSubmission is stable for repeat submits", async () => {
     notes: "Changed my mind.",
     store,
     coder: fakeCoder,
+    gitPreflight: async () => {},
   });
 
   assert.equal(first.submissionId, second.submissionId);
   assert.equal(second.submitNotes, "Investigated and fixed it.");
+});
+
+test("queueCandidateSubmission blocks before creating a submission when Git preflight fails", async () => {
+  const store = new CandidateSessionStore(":memory:", "https://backend.example.com");
+  const created = await store.createPendingSession({
+    assessmentId: "assessment-123",
+    artifactPath: "/tmp/artifact",
+  });
+  await store.markProvisioned({
+    sessionId: created.record.sessionId,
+    artifactTokenHash: hashToken("artifact-token"),
+    aiTokenHash: hashToken("ai-token"),
+    submitTokenHash: hashToken("submit-token"),
+    coderUserId: "user-id",
+    coderUsername: "candidate-abc",
+    coderWorkspaceId: "workspace-id",
+    coderWorkspaceName: "assess-abc",
+  });
+
+  const record = (await store.findByLaunchToken(created.launchToken))!;
+  await assert.rejects(
+    queueCandidateSubmission({
+      record,
+      notes: "Done.",
+      store,
+      coder: { async stopWorkspace() {} },
+      gitPreflight: async () => {
+        throw new CandidateGitPreflightError("Please commit your work to the main branch before submitting.");
+      },
+    }),
+    CandidateGitPreflightError,
+  );
+
+  assert.equal(await store.findSubmissionBySessionId(record.sessionId), undefined);
 });
 
 test("computeOverallScore uses rubric weights", () => {
@@ -136,6 +173,16 @@ test("calculation details expose scoring inputs and sanitized AI evidence", asyn
     sessionId: created.record.sessionId,
     assessmentId: created.record.assessmentId,
     submitNotes: "Fixed the issue and verified it.",
+  });
+  await store.markSubmissionRunning({
+    sessionId: created.record.sessionId,
+    workspaceSnapshotPath: "/tmp/submission",
+    git: {
+      branch: "main",
+      baselineCommit: "a".repeat(40),
+      submittedCommit: "b".repeat(40),
+      changedFiles: ["src/app.ts"],
+    },
   });
   await store.markSubmissionSucceeded({
     sessionId: created.record.sessionId,
@@ -193,6 +240,7 @@ test("calculation details expose scoring inputs and sanitized AI evidence", asyn
   assert.match(detailed.calculationDetails.aiProxyRequests[0].requestJson, /\[REDACTED/);
   assert.doesNotMatch(detailed.calculationDetails.aiProxyRequests[0].requestJson, /sk-secret/);
   assert.equal(detailed.calculationDetails.hiddenTestResult?.score, 100);
+  assert.deepEqual(detailed.calculationDetails.git?.changedFiles, ["src/app.ts"]);
 });
 
 test("summarizeSubmittedCaseResults scores control and exposes_bug proportions separately", () => {

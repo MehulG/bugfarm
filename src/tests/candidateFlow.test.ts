@@ -49,8 +49,10 @@ test("candidate artifact zip includes repo README instructions and excludes non-
   assert.deepEqual(Object.keys(entries).sort(), ["AI_ASSISTANT.md", "README.md", "src/app.ts"]);
   assert.match(entries["README.md"].toString("utf8"), /Fix the login bug/);
   assert.match(entries["README.md"].toString("utf8"), /codesheep-ai/);
+  assert.match(entries["README.md"].toString("utf8"), /git commit -m "Complete assessment"/);
   assert.match(entries["AI_ASSISTANT.md"].toString("utf8"), /Cline is preconfigured/);
   assert.match(entries["AI_ASSISTANT.md"].toString("utf8"), /OpenAI Compatible/);
+  assert.match(entries["AI_ASSISTANT.md"].toString("utf8"), /`main` branch/);
   assert.match(entries["README.md"].toString("utf8"), /Original README/);
   assert.equal(entries["src/app.ts"].toString("utf8"), "export const value = 1;\n");
 });

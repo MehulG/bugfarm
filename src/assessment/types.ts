@@ -108,6 +108,13 @@ export type CandidateEvaluationAiProxyRequest = {
   estimatedTotalTokens: number;
 };
 
+export type CandidateSubmissionGitEvidence = {
+  branch: string;
+  baselineCommit: string;
+  submittedCommit: string;
+  changedFiles: string[];
+};
+
 export type CandidateEvaluationCalculationDetails = {
   scoreFormula: string;
   weightedScoreInputs: Array<{
@@ -121,6 +128,7 @@ export type CandidateEvaluationCalculationDetails = {
   dimensionScores?: CandidateEvaluationDimensionScore[];
   aiUsageSummary: CandidateEvaluationAiUsageSummary;
   aiProxyRequests: CandidateEvaluationAiProxyRequest[];
+  git?: CandidateSubmissionGitEvidence;
   submitNotes: string;
   evaluatorNotes?: string;
 };
@@ -134,6 +142,7 @@ export type CandidateEvaluationResult = {
   completedAt?: string;
   submitNotes: string;
   workspaceSnapshotPath?: string;
+  git?: CandidateSubmissionGitEvidence;
   hiddenTestResult?: SubmissionHiddenTestResult;
   dimensionScores?: CandidateEvaluationDimensionScore[];
   overallScore?: number;

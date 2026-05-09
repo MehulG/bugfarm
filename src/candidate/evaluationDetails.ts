@@ -44,6 +44,7 @@ export function buildCalculationDetails(
     dimensionScores: result.dimensionScores,
     aiUsageSummary: summarizeAiUsage(aiProxyRequests),
     aiProxyRequests,
+    git: result.git,
     submitNotes: result.submitNotes,
     evaluatorNotes: result.evaluatorNotes,
   };

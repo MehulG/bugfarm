@@ -1,8 +1,5 @@
-import { execFile } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { promisify } from "node:util";
-import { getChangedFiles } from "../codesheep/git.js";
 import { runCursorAgent } from "../cursor/client.js";
 import { evaluateSubmittedRepoAgainstHiddenTests } from "../assessment/hiddenTests.js";
 import { loadAssessmentMetadata } from "../assessment/generateTests.js";
@@ -13,8 +10,11 @@ import type {
 } from "../assessment/types.js";
 import { candidateSessionStore, type CandidateSessionRecord } from "./store.js";
 import { CoderClient } from "./coderClient.js";
+import {
+  snapshotDockerCommittedMain,
+  validateDockerSubmissionGit,
+} from "./gitSubmission.js";
 
-const execFileAsync = promisify(execFile);
 const runningEvaluations = new Map<string, Promise<void>>();
 
 type EvaluationStore = Pick<
@@ -35,11 +35,18 @@ export async function queueCandidateSubmission(input: {
   notes: string;
   store?: EvaluationStore;
   coder?: EvaluationCoder;
+  gitPreflight?: () => Promise<void>;
 }): Promise<CandidateEvaluationResult> {
   const store = input.store ?? candidateSessionStore;
   const existing = await store.findSubmissionBySessionId(input.record.sessionId);
   if (existing) {
     return existing;
+  }
+
+  if (input.gitPreflight) {
+    await input.gitPreflight();
+  } else {
+    await validateDockerSubmissionGit(getWorkspaceContainerName(input.record));
   }
 
   let submission: CandidateEvaluationResult;
@@ -87,10 +94,11 @@ async function evaluateCandidateSubmission(input: {
   const snapshotPath = path.join(snapshotRoot, "project");
   try {
     await mkdir(snapshotPath, { recursive: true });
-    await snapshotWorkspaceRepo(input.record, snapshotPath);
+    const git = await snapshotWorkspaceRepo(input.record, snapshotRoot, snapshotPath);
     await input.store.markSubmissionRunning({
       sessionId: input.record.sessionId,
       workspaceSnapshotPath: snapshotPath,
+      git,
     });
 
     const metadata = await loadAssessmentMetadata(input.record.artifactPath);
@@ -104,6 +112,7 @@ async function evaluateCandidateSubmission(input: {
     const dimensionScores = await scoreDimensions({
       metadata,
       snapshotPath,
+      changedFiles: git.changedFiles,
       submitNotes: submission.submitNotes,
       hiddenTestResult,
       latestAiRequestText: latestAiRequest?.requestJson,
@@ -146,25 +155,35 @@ async function evaluateCandidateSubmission(input: {
   }
 }
 
-async function snapshotWorkspaceRepo(record: CandidateSessionRecord, destinationPath: string): Promise<void> {
+async function snapshotWorkspaceRepo(
+  record: CandidateSessionRecord,
+  snapshotRoot: string,
+  destinationPath: string,
+): Promise<Awaited<ReturnType<typeof snapshotDockerCommittedMain>>> {
+  return snapshotDockerCommittedMain({
+    containerName: getWorkspaceContainerName(record),
+    snapshotRoot,
+    destinationPath,
+  });
+}
+
+function getWorkspaceContainerName(record: CandidateSessionRecord): string {
   if (!record.coderUsername || !record.coderWorkspaceName) {
     throw new Error("Candidate workspace metadata is incomplete");
   }
 
-  const containerName = `coder-${record.coderUsername}-${record.coderWorkspaceName.toLowerCase()}`;
-  await execFileAsync("docker", ["cp", `${containerName}:/home/coder/project/.`, destinationPath], {
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  return `coder-${record.coderUsername}-${record.coderWorkspaceName.toLowerCase()}`;
 }
 
 async function scoreDimensions(input: {
   metadata: Awaited<ReturnType<typeof loadAssessmentMetadata>>;
   snapshotPath: string;
+  changedFiles: string[];
   submitNotes: string;
   hiddenTestResult: CandidateEvaluationResult["hiddenTestResult"];
   latestAiRequestText?: string;
 }): Promise<CandidateEvaluationDimensionScore[]> {
-  const changedFiles = await getChangedFiles(input.snapshotPath);
+  const changedFiles = input.changedFiles;
   const expectedFiles = new Set(input.metadata.filesChanged);
   const unrelatedFiles = changedFiles.filter((file) => !expectedFiles.has(file));
   const touchedExpected = changedFiles.filter((file) => expectedFiles.has(file));

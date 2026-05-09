@@ -57,9 +57,9 @@ function buildCandidateReadme(task?: string, originalReadme?: string): string {
   const parts: string[] = [];
 
   if (task?.trim()) {
-    parts.push(`# Assessment Instructions\n\n${task.trim()}\n\n## Submission\n\nWhen you are done, open the Codesheep icon in the left activity bar, describe what you changed and how you verified it, then click **Submit Assessment**.\n\n## AI Assistance\n\nCline is preconfigured in the editor sidebar. You can also use \`codesheep-ai "your question"\` in the terminal. See \`AI_ASSISTANT.md\` for details.\n`);
+    parts.push(`# Assessment Instructions\n\n${task.trim()}\n\n## Submission\n\nCommit your final work to the \`main\` branch before submitting. When you are done, open the Codesheep icon in the left activity bar, describe what you changed and how you verified it, then click **Submit Assessment**.\n\nTerminal fallback:\n\n\`\`\`sh\ngit add -A\ngit commit -m "Complete assessment"\ncodesheep-submit --notes "what you changed and how you verified it"\n\`\`\`\n\n## AI Assistance\n\nCline is preconfigured in the editor sidebar. You can also use \`codesheep-ai "your question"\` in the terminal. See \`AI_ASSISTANT.md\` for details.\n`);
   } else {
-    parts.push("# Assessment Instructions\n\nFix the issue in this repository.\n\n## Submission\n\nWhen you are done, open the Codesheep icon in the left activity bar, describe what you changed and how you verified it, then click **Submit Assessment**.\n\n## AI Assistance\n\nCline is preconfigured in the editor sidebar. You can also use `codesheep-ai \"your question\"` in the terminal. See `AI_ASSISTANT.md` for details.\n");
+    parts.push('# Assessment Instructions\n\nFix the issue in this repository.\n\n## Submission\n\nCommit your final work to the `main` branch before submitting. When you are done, open the Codesheep icon in the left activity bar, describe what you changed and how you verified it, then click **Submit Assessment**.\n\nTerminal fallback:\n\n```sh\ngit add -A\ngit commit -m "Complete assessment"\ncodesheep-submit --notes "what you changed and how you verified it"\n```\n\n## AI Assistance\n\nCline is preconfigured in the editor sidebar. You can also use `codesheep-ai "your question"` in the terminal. See `AI_ASSISTANT.md` for details.\n');
   }
 
   if (originalReadme?.trim()) {
@@ -104,9 +104,16 @@ API keys.
 
 ## Submit Your Assessment
 
-Use the Codesheep icon in the left activity bar. Enter notes describing what you
-changed and how you verified it, then click **Submit Assessment**. The
-\`codesheep-submit\` terminal command is available only as a fallback.
+Commit your final work to the \`main\` branch, then use the Codesheep icon in the
+left activity bar. Enter notes describing what you changed and how you verified
+it, then click **Submit Assessment**. The \`codesheep-submit\` terminal command
+is available only as a fallback:
+
+\`\`\`sh
+git add -A
+git commit -m "Complete assessment"
+codesheep-submit --notes "what you changed and how you verified it"
+\`\`\`
 `;
 }
 

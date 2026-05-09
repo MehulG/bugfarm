@@ -1,4 +1,5 @@
 const fs = require("fs");
+const childProcess = require("child_process");
 const http = require("http");
 const https = require("https");
 const os = require("os");
@@ -67,6 +68,7 @@ class SubmitViewProvider {
     let config;
     try {
       config = readConfig();
+      assertGitReady();
     } catch (error) {
       this.postStatus("error", error.message, false);
       return;
@@ -192,6 +194,53 @@ class SubmitViewProvider {
 </body>
 </html>`;
   }
+}
+
+function assertGitReady() {
+  const repoPath = getProjectPath();
+  try {
+    git(repoPath, ["rev-parse", "--is-inside-work-tree"]);
+  } catch {
+    throw new Error("Submission requires a Git repository on the main branch.");
+  }
+
+  const branch = git(repoPath, ["branch", "--show-current"]).trim();
+  if (branch !== "main") {
+    throw new Error(`Please switch to the main branch before submitting. Current branch: ${branch || "(detached HEAD)"}`);
+  }
+
+  try {
+    git(repoPath, ["rev-parse", "--verify", "codesheep-baseline^{commit}"]);
+  } catch {
+    throw new Error("Submission requires the codesheep-baseline Git tag. Restart this workspace and try again.");
+  }
+
+  const status = git(repoPath, ["status", "--short", "--untracked-files=all"]).trim();
+  if (status) {
+    throw new Error([
+      "Please commit your work to the main branch before submitting.",
+      "",
+      "Run:",
+      "  git status",
+      "  git add -A",
+      '  git commit -m "Complete assessment"',
+      '  codesheep-submit --notes "what you changed and how you verified it"',
+      "",
+      "Current git status:",
+      status,
+    ].join("\n"));
+  }
+}
+
+function getProjectPath() {
+  return vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || "/home/coder/project";
+}
+
+function git(repoPath, args) {
+  return childProcess.execFileSync("git", ["-C", repoPath, ...args], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 }
 
 function readConfig() {

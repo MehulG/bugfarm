@@ -68,10 +68,10 @@ resource "coder_agent" "main" {
     CLINE_DIR=/home/coder/.cline
     export CLINE_DIR
 
-    if ! command -v curl >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1; then
-      echo "Installing curl, unzip, and python3..."
+    if ! command -v curl >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
+      echo "Installing curl, unzip, python3, and git..."
       sudo apt-get update
-      sudo apt-get install -y curl unzip python3
+      sudo apt-get install -y curl unzip python3 git
     fi
 
     if ! command -v code-server >/dev/null 2>&1; then
@@ -309,6 +309,44 @@ if [ -z "$NOTES" ]; then
   exit 1
 fi
 
+PROJECT_DIR=/home/coder/project
+if ! git -C "$PROJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Submission requires a Git repository on the main branch." >&2
+  exit 1
+fi
+
+BRANCH=$(git -C "$PROJECT_DIR" branch --show-current)
+if [ "$BRANCH" != "main" ]; then
+  BRANCH_LABEL="$BRANCH"
+  if [ -z "$BRANCH_LABEL" ]; then
+    BRANCH_LABEL="(detached HEAD)"
+  fi
+  echo "Please switch to the main branch before submitting. Current branch: $BRANCH_LABEL" >&2
+  exit 1
+fi
+
+if ! git -C "$PROJECT_DIR" rev-parse --verify 'codesheep-baseline^{commit}' >/dev/null 2>&1; then
+  echo "Submission requires the codesheep-baseline Git tag. Restart this workspace and try again." >&2
+  exit 1
+fi
+
+STATUS=$(git -C "$PROJECT_DIR" status --short --untracked-files=all)
+if [ -n "$STATUS" ]; then
+  cat >&2 <<STATUS_EOF
+Please commit your work to the main branch before submitting.
+
+Run:
+  git status
+  git add -A
+  git commit -m "Complete assessment"
+  codesheep-submit --notes "what you changed and how you verified it"
+
+Current git status:
+$STATUS
+STATUS_EOF
+  exit 1
+fi
+
 BODY=$(printf '{"notes":%s}' "$(printf '%s' "$NOTES" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')")
 RESPONSE=$(curl -sS -H "Authorization: Bearer $SUBMIT_TOKEN" -H "Content-Type: application/json" "$SUBMIT_URL" -d "$BODY")
 printf '%s\n' "$RESPONSE"
@@ -335,6 +373,19 @@ EOF
         echo "Failed to extract artifact zip into $PROJECT_DIR" >&2
         exit 1
       fi
+
+      git -C "$PROJECT_DIR" init
+      git -C "$PROJECT_DIR" branch -M main
+      git -C "$PROJECT_DIR" config user.name "Codesheep Candidate"
+      git -C "$PROJECT_DIR" config user.email "candidate@codesheep.local"
+      mkdir -p "$PROJECT_DIR/.git/info"
+      {
+        echo ".artifact_ready"
+        echo ".codesheep-*"
+      } >> "$PROJECT_DIR/.git/info/exclude"
+      git -C "$PROJECT_DIR" add -A
+      git -C "$PROJECT_DIR" commit -m "Initial assessment baseline"
+      git -C "$PROJECT_DIR" tag codesheep-baseline
 
       touch "$PROJECT_DIR/.artifact_ready"
       echo "Artifact $ARTIFACT_HASH is ready in $PROJECT_DIR"

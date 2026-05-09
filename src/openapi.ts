@@ -142,6 +142,7 @@ export const openApiDocument = {
           "400": { description: "Missing submission notes" },
           "401": { description: "Missing submission token" },
           "403": { description: "Invalid or expired submission token" },
+          "409": { description: "Workspace Git state is not clean on main or is missing the baseline tag" },
         },
       },
     },
@@ -150,7 +151,7 @@ export const openApiDocument = {
         summary: "List full candidate submissions",
         operationId: "listCandidateSubmissions",
         description:
-          "Returns complete stored submission/evaluation records. Each returned submission includes calculationDetails with the score formula, weighted score inputs, hidden-test result, sanitized AI proxy transcripts, and aggregate AI usage. Filter by assessmentId to fetch submissions for a particular assignment, or by sessionId to fetch the submission for one candidate session.",
+          "Returns complete stored submission/evaluation records. Each returned submission includes calculationDetails with the score formula, weighted score inputs, hidden-test result, Git evidence for the evaluated main commit, sanitized AI proxy transcripts, and aggregate AI usage. Filter by assessmentId to fetch submissions for a particular assignment, or by sessionId to fetch the submission for one candidate session.",
         parameters: [
           {
             in: "query",
@@ -203,7 +204,7 @@ export const openApiDocument = {
         summary: "Fetch full submissions for an assessment",
         operationId: "getAssessmentSubmissions",
         description:
-          "Returns complete stored submission/evaluation records for all candidate submissions belonging to one assessment. Each submission includes calculationDetails with scoring inputs and sanitized AI evidence.",
+          "Returns complete stored submission/evaluation records for all candidate submissions belonging to one assessment. Each submission includes calculationDetails with scoring inputs, Git evidence, and sanitized AI evidence.",
         parameters: [
           {
             in: "path",
@@ -251,7 +252,7 @@ export const openApiDocument = {
         summary: "Fetch full submissions for an assessment",
         operationId: "getAssessmentSubmissionAlias",
         description:
-          "Singular alias for fetching complete stored submission/evaluation records for all candidate submissions belonging to one assessment. Each submission includes calculationDetails with scoring inputs and sanitized AI evidence.",
+          "Singular alias for fetching complete stored submission/evaluation records for all candidate submissions belonging to one assessment. Each submission includes calculationDetails with scoring inputs, Git evidence, and sanitized AI evidence.",
         parameters: [
           {
             in: "path",
@@ -309,7 +310,7 @@ export const openApiDocument = {
         responses: {
           "200": {
             description:
-              "Complete submission record with calculationDetails containing the score formula, weighted inputs, hidden-test result, sanitized AI transcripts, and AI usage summary.",
+              "Complete submission record with calculationDetails containing the score formula, weighted inputs, hidden-test result, Git evidence, sanitized AI transcripts, and AI usage summary.",
           },
           "404": { description: "Submission not found" },
         },
@@ -320,7 +321,7 @@ export const openApiDocument = {
         summary: "Fetch one full candidate submission",
         operationId: "getCandidateSubmissionAlias",
         description:
-          "Singular alias for fetching one complete candidate submission/evaluation record, including calculationDetails evidence.",
+          "Singular alias for fetching one complete candidate submission/evaluation record, including calculationDetails and Git evidence.",
         parameters: [
           {
             in: "path",
@@ -332,7 +333,7 @@ export const openApiDocument = {
         responses: {
           "200": {
             description:
-              "Complete submission record with calculationDetails containing the score formula, weighted inputs, hidden-test result, sanitized AI transcripts, and AI usage summary.",
+              "Complete submission record with calculationDetails containing the score formula, weighted inputs, hidden-test result, Git evidence, sanitized AI transcripts, and AI usage summary.",
           },
           "404": { description: "Submission not found" },
         },
@@ -343,7 +344,7 @@ export const openApiDocument = {
         summary: "Fetch full evaluation results for an assessment",
         operationId: "getAssessmentEvaluationResults",
         description:
-          "Returns complete stored submission/evaluation records for all candidate submissions belonging to one assessment. Each submission includes calculationDetails with the score formula, weighted score inputs, hidden-test result, sanitized AI proxy transcripts, and aggregate AI usage.",
+          "Returns complete stored submission/evaluation records for all candidate submissions belonging to one assessment. Each submission includes calculationDetails with the score formula, weighted score inputs, hidden-test result, Git evidence, sanitized AI proxy transcripts, and aggregate AI usage.",
         parameters: [
           {
             in: "path",
@@ -391,7 +392,7 @@ export const openApiDocument = {
         summary: "Fetch stored evaluation result for a session",
         operationId: "getCandidateEvaluation",
         description:
-          "Returns the full evaluation result for one session, including calculationDetails with the score formula, weighted score inputs, hidden-test result, sanitized AI proxy transcripts, and aggregate AI usage.",
+          "Returns the full evaluation result for one session, including calculationDetails with the score formula, weighted score inputs, hidden-test result, Git evidence, sanitized AI proxy transcripts, and aggregate AI usage.",
         parameters: [
           {
             in: "path",
@@ -1199,6 +1200,21 @@ export const openApiDocument = {
             type: "string",
           },
         },
+      },
+      CandidateSubmissionGitEvidence: {
+        type: "object",
+        required: ["branch", "baselineCommit", "submittedCommit", "changedFiles"],
+        properties: {
+          branch: { type: "string", example: "main" },
+          baselineCommit: { type: "string" },
+          submittedCommit: { type: "string" },
+          changedFiles: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+        description:
+          "Git evidence for the committed main branch snapshot used during candidate evaluation. Exposed as submission.git and calculationDetails.git.",
       },
       AssessmentValidation: {
         type: "object",

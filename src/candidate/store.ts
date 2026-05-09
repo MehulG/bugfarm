@@ -7,6 +7,7 @@ import type {
   CandidateEvaluationDimensionScore,
   CandidateEvaluationResult,
   CandidateFinalVerdict,
+  CandidateSubmissionGitEvidence,
   CandidateSubmissionStatus,
   SubmissionHiddenTestResult,
 } from "../assessment/types.js";
@@ -87,6 +88,10 @@ type CandidateSubmissionRow = {
   completed_at: string | null;
   submit_notes: string;
   workspace_snapshot_path: string | null;
+  git_branch: string | null;
+  git_baseline_commit: string | null;
+  git_submitted_commit: string | null;
+  git_changed_files_json: string | null;
   hidden_test_result_json: string | null;
   dimension_scores_json: string | null;
   overall_score: number | null;
@@ -455,14 +460,26 @@ export class CandidateSessionStore {
   async markSubmissionRunning(input: {
     sessionId: string;
     workspaceSnapshotPath: string;
+    git?: CandidateSubmissionGitEvidence;
   }): Promise<void> {
     await this.init();
     await this.run(
       `UPDATE candidate_submissions
        SET status = 'running',
-           workspace_snapshot_path = ?
+           workspace_snapshot_path = ?,
+           git_branch = COALESCE(?, git_branch),
+           git_baseline_commit = COALESCE(?, git_baseline_commit),
+           git_submitted_commit = COALESCE(?, git_submitted_commit),
+           git_changed_files_json = COALESCE(?, git_changed_files_json)
        WHERE session_id = ?`,
-      [input.workspaceSnapshotPath, input.sessionId],
+      [
+        input.workspaceSnapshotPath,
+        input.git?.branch ?? null,
+        input.git?.baselineCommit ?? null,
+        input.git?.submittedCommit ?? null,
+        input.git ? JSON.stringify(input.git.changedFiles) : null,
+        input.sessionId,
+      ],
     );
   }
 
@@ -614,6 +631,10 @@ export class CandidateSessionStore {
         completed_at TEXT,
         submit_notes TEXT NOT NULL,
         workspace_snapshot_path TEXT,
+        git_branch TEXT,
+        git_baseline_commit TEXT,
+        git_submitted_commit TEXT,
+        git_changed_files_json TEXT,
         hidden_test_result_json TEXT,
         dimension_scores_json TEXT,
         overall_score REAL,
@@ -626,6 +647,10 @@ export class CandidateSessionStore {
     await this.run(
       "CREATE INDEX IF NOT EXISTS idx_candidate_submissions_assessment ON candidate_submissions (assessment_id, submitted_at)",
     );
+    await this.addColumnIfMissing("candidate_submissions", "git_branch", "TEXT");
+    await this.addColumnIfMissing("candidate_submissions", "git_baseline_commit", "TEXT");
+    await this.addColumnIfMissing("candidate_submissions", "git_submitted_commit", "TEXT");
+    await this.addColumnIfMissing("candidate_submissions", "git_changed_files_json", "TEXT");
   }
 
   private async addColumnIfMissing(tableName: string, columnName: string, type: string): Promise<void> {
@@ -714,6 +739,17 @@ function rowToSubmission(row: CandidateSubmissionRow): CandidateEvaluationResult
     completedAt: row.completed_at ?? undefined,
     submitNotes: row.submit_notes,
     workspaceSnapshotPath: row.workspace_snapshot_path ?? undefined,
+    git:
+      row.git_branch && row.git_baseline_commit && row.git_submitted_commit
+        ? {
+            branch: row.git_branch,
+            baselineCommit: row.git_baseline_commit,
+            submittedCommit: row.git_submitted_commit,
+            changedFiles: row.git_changed_files_json
+              ? (JSON.parse(row.git_changed_files_json) as string[])
+              : [],
+          }
+        : undefined,
     hiddenTestResult: row.hidden_test_result_json
       ? (JSON.parse(row.hidden_test_result_json) as SubmissionHiddenTestResult)
       : undefined,

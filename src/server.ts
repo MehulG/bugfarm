@@ -22,6 +22,7 @@ import {
   handleCandidateLaunchStatus,
 } from "./candidate/flow.js";
 import { queueCandidateSubmission } from "./candidate/evaluation.js";
+import { CandidateGitPreflightError } from "./candidate/gitSubmission.js";
 import {
   attachCalculationDetails,
   attachCalculationDetailsToMany,
@@ -79,6 +80,10 @@ export function createServer(): express.Express {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown candidate submit error";
+      if (error instanceof CandidateGitPreflightError) {
+        res.status(409).send(renderPlainError(message));
+        return;
+      }
       logger.error("Failed to submit candidate workspace", { message });
       res.status(500).send(message);
     }
@@ -136,6 +141,10 @@ export function createServer(): express.Express {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown candidate submit error";
+      if (error instanceof CandidateGitPreflightError) {
+        res.status(409).json({ status: "error", message });
+        return;
+      }
       logger.error("Failed to submit candidate workspace via token", { message });
       res.status(500).json({ status: "error", message });
     }
@@ -391,6 +400,18 @@ export function createServer(): express.Express {
   });
 
   return app;
+}
+
+function renderPlainError(message: string): string {
+  return `<pre style="white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace">${escapeHtml(message)}</pre>`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function parseBearerToken(header: string | undefined): string | undefined {
