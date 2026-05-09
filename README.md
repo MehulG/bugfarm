@@ -279,8 +279,10 @@ AI_SESSION_REQUEST_LIMIT=100
 ```
 
 The proxy overrides candidate-supplied model names with `AI_UPSTREAM_MODEL`,
-enforces session expiry/status and request quota, and stores full request and
-response transcripts in SQLite for audit/debugging.
+enforces session expiry/status and request quota, and stores request and
+response transcripts in SQLite for audit/debugging. Admin evaluation APIs return
+those transcripts sanitized inside `calculationDetails`, alongside AI usage
+totals.
 
 ### Generate Bug
 
@@ -446,7 +448,10 @@ assessment from the editor UI. `codesheep-submit` remains available as a termina
 fallback. Submission captures candidate notes, snapshots `/home/coder/project`,
 evaluates the snapshot against the hidden-test bundle plus rubric dimensions,
 stores the result, and then requests a workspace stop. Scores are exposed through
-`GET /api/evaluations/:sessionId` for admin/backend consumers only.
+`GET /api/evaluations/:sessionId` for admin/backend consumers only. Evaluation
+and submission API responses include `calculationDetails` with the score formula,
+weighted score inputs, hidden-test result, sanitized AI proxy transcripts, and AI
+usage summary.
 
 If hidden-test generation does not validate after a small number of retries, the artifact is preserved for inspection and `assessment.json` records the failed validation state.
 

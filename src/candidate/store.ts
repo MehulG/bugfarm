@@ -67,6 +67,7 @@ export type AiProxyAuditRecord = {
 };
 
 export type StoredAiProxyRequest = AiProxyAuditRecord & {
+  id: number;
   createdAt: string;
   providerStatus?: number;
 };
@@ -296,6 +297,7 @@ export class CandidateSessionStore {
   async getLatestAiProxyRequest(sessionId: string): Promise<StoredAiProxyRequest | undefined> {
     await this.init();
     const row = await this.get<{
+      id: number;
       session_id: string;
       assessment_id: string;
       created_at: string;
@@ -319,6 +321,7 @@ export class CandidateSessionStore {
     }
 
     return {
+      id: row.id,
       sessionId: row.session_id,
       assessmentId: row.assessment_id,
       createdAt: row.created_at,
@@ -329,6 +332,46 @@ export class CandidateSessionStore {
       providerStatus: row.provider_status ?? undefined,
       errorText: row.error_text ?? undefined,
     };
+  }
+
+  async listAiProxyRequests(input: {
+    sessionId: string;
+    limit?: number;
+  }): Promise<StoredAiProxyRequest[]> {
+    await this.init();
+    const boundedLimit = Math.min(Math.max(Math.trunc(input.limit ?? 200) || 200, 1), 1000);
+    const rows = await this.all<{
+      id: number;
+      session_id: string;
+      assessment_id: string;
+      created_at: string;
+      model: string;
+      request_json: string;
+      response_body: string | null;
+      status: AiProxyRequestStatus;
+      provider_status: number | null;
+      error_text: string | null;
+    }>(
+      `SELECT *
+       FROM ai_proxy_requests
+       WHERE session_id = ?
+       ORDER BY id ASC
+       LIMIT ?`,
+      [input.sessionId, boundedLimit],
+    );
+
+    return rows.map((row) => ({
+      id: row.id,
+      sessionId: row.session_id,
+      assessmentId: row.assessment_id,
+      createdAt: row.created_at,
+      model: row.model,
+      requestJson: row.request_json,
+      responseBody: row.response_body ?? undefined,
+      status: row.status,
+      providerStatus: row.provider_status ?? undefined,
+      errorText: row.error_text ?? undefined,
+    }));
   }
 
   async createSubmission(input: {

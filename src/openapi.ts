@@ -150,7 +150,7 @@ export const openApiDocument = {
         summary: "List full candidate submissions",
         operationId: "listCandidateSubmissions",
         description:
-          "Returns complete stored submission/evaluation records. Filter by assessmentId to fetch submissions for a particular assignment, or by sessionId to fetch the submission for one candidate session.",
+          "Returns complete stored submission/evaluation records. Each returned submission includes calculationDetails with the score formula, weighted score inputs, hidden-test result, sanitized AI proxy transcripts, and aggregate AI usage. Filter by assessmentId to fetch submissions for a particular assignment, or by sessionId to fetch the submission for one candidate session.",
         parameters: [
           {
             in: "query",
@@ -178,7 +178,8 @@ export const openApiDocument = {
         ],
         responses: {
           "200": {
-            description: "Complete submission records",
+            description:
+              "Complete submission records with calculationDetails evidence for every score.",
             content: {
               "application/json": {
                 schema: {
@@ -202,7 +203,7 @@ export const openApiDocument = {
         summary: "Fetch full submissions for an assessment",
         operationId: "getAssessmentSubmissions",
         description:
-          "Returns complete stored submission/evaluation records for all candidate submissions belonging to one assessment.",
+          "Returns complete stored submission/evaluation records for all candidate submissions belonging to one assessment. Each submission includes calculationDetails with scoring inputs and sanitized AI evidence.",
         parameters: [
           {
             in: "path",
@@ -224,7 +225,8 @@ export const openApiDocument = {
         ],
         responses: {
           "200": {
-            description: "Complete assessment submission records",
+            description:
+              "Complete assessment submission records with calculationDetails evidence for every score.",
             content: {
               "application/json": {
                 schema: {
@@ -249,7 +251,7 @@ export const openApiDocument = {
         summary: "Fetch full submissions for an assessment",
         operationId: "getAssessmentSubmissionAlias",
         description:
-          "Singular alias for fetching complete stored submission/evaluation records for all candidate submissions belonging to one assessment.",
+          "Singular alias for fetching complete stored submission/evaluation records for all candidate submissions belonging to one assessment. Each submission includes calculationDetails with scoring inputs and sanitized AI evidence.",
         parameters: [
           {
             in: "path",
@@ -271,7 +273,8 @@ export const openApiDocument = {
         ],
         responses: {
           "200": {
-            description: "Complete assessment submission records",
+            description:
+              "Complete assessment submission records with calculationDetails evidence for every score.",
             content: {
               "application/json": {
                 schema: {
@@ -304,7 +307,10 @@ export const openApiDocument = {
           },
         ],
         responses: {
-          "200": { description: "Complete submission record" },
+          "200": {
+            description:
+              "Complete submission record with calculationDetails containing the score formula, weighted inputs, hidden-test result, sanitized AI transcripts, and AI usage summary.",
+          },
           "404": { description: "Submission not found" },
         },
       },
@@ -313,7 +319,8 @@ export const openApiDocument = {
       get: {
         summary: "Fetch one full candidate submission",
         operationId: "getCandidateSubmissionAlias",
-        description: "Singular alias for fetching one complete candidate submission/evaluation record.",
+        description:
+          "Singular alias for fetching one complete candidate submission/evaluation record, including calculationDetails evidence.",
         parameters: [
           {
             in: "path",
@@ -323,7 +330,10 @@ export const openApiDocument = {
           },
         ],
         responses: {
-          "200": { description: "Complete submission record" },
+          "200": {
+            description:
+              "Complete submission record with calculationDetails containing the score formula, weighted inputs, hidden-test result, sanitized AI transcripts, and AI usage summary.",
+          },
           "404": { description: "Submission not found" },
         },
       },
@@ -333,7 +343,7 @@ export const openApiDocument = {
         summary: "Fetch full evaluation results for an assessment",
         operationId: "getAssessmentEvaluationResults",
         description:
-          "Returns complete stored submission/evaluation records for all candidate submissions belonging to one assessment.",
+          "Returns complete stored submission/evaluation records for all candidate submissions belonging to one assessment. Each submission includes calculationDetails with the score formula, weighted score inputs, hidden-test result, sanitized AI proxy transcripts, and aggregate AI usage.",
         parameters: [
           {
             in: "path",
@@ -355,7 +365,8 @@ export const openApiDocument = {
         ],
         responses: {
           "200": {
-            description: "Complete assessment evaluation results",
+            description:
+              "Complete assessment evaluation results with calculationDetails evidence for every score.",
             content: {
               "application/json": {
                 schema: {
@@ -379,6 +390,8 @@ export const openApiDocument = {
       get: {
         summary: "Fetch stored evaluation result for a session",
         operationId: "getCandidateEvaluation",
+        description:
+          "Returns the full evaluation result for one session, including calculationDetails with the score formula, weighted score inputs, hidden-test result, sanitized AI proxy transcripts, and aggregate AI usage.",
         parameters: [
           {
             in: "path",
@@ -390,7 +403,10 @@ export const openApiDocument = {
           },
         ],
         responses: {
-          "200": { description: "Evaluation result found" },
+          "200": {
+            description:
+              "Evaluation result found with calculationDetails evidence for every score.",
+          },
           "404": { description: "Evaluation not found" },
         },
       },

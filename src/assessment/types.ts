@@ -84,6 +84,47 @@ export type CandidateFinalVerdict = "pass" | "fail";
 
 export type CandidateSubmissionStatus = "queued" | "running" | "succeeded" | "failed";
 
+export type CandidateEvaluationAiUsageSummary = {
+  requestCount: number;
+  successfulRequestCount: number;
+  failedRequestCount: number;
+  estimatedPromptTokens: number;
+  estimatedCompletionTokens: number;
+  estimatedTotalTokens: number;
+  firstAiCallAt?: string;
+  lastAiCallAt?: string;
+};
+
+export type CandidateEvaluationAiProxyRequest = {
+  createdAt: string;
+  model: string;
+  requestJson: string;
+  responseBody?: string;
+  status: "succeeded" | "failed";
+  providerStatus?: number;
+  errorText?: string;
+  estimatedPromptTokens: number;
+  estimatedCompletionTokens: number;
+  estimatedTotalTokens: number;
+};
+
+export type CandidateEvaluationCalculationDetails = {
+  scoreFormula: string;
+  weightedScoreInputs: Array<{
+    name: string;
+    weight: number;
+    score: number;
+    weightedContribution: number;
+    reason: string;
+  }>;
+  hiddenTestResult?: SubmissionHiddenTestResult;
+  dimensionScores?: CandidateEvaluationDimensionScore[];
+  aiUsageSummary: CandidateEvaluationAiUsageSummary;
+  aiProxyRequests: CandidateEvaluationAiProxyRequest[];
+  submitNotes: string;
+  evaluatorNotes?: string;
+};
+
 export type CandidateEvaluationResult = {
   submissionId: string;
   sessionId: string;
@@ -98,6 +139,7 @@ export type CandidateEvaluationResult = {
   overallScore?: number;
   finalVerdict?: CandidateFinalVerdict;
   evaluatorNotes?: string;
+  calculationDetails?: CandidateEvaluationCalculationDetails;
   workspaceStopRequestedAt?: string;
   errorText?: string;
 };

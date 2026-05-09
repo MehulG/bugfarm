@@ -22,6 +22,10 @@ import {
   handleCandidateLaunchStatus,
 } from "./candidate/flow.js";
 import { queueCandidateSubmission } from "./candidate/evaluation.js";
+import {
+  attachCalculationDetails,
+  attachCalculationDetailsToMany,
+} from "./candidate/evaluationDetails.js";
 import { candidateSessionStore } from "./candidate/store.js";
 import { handleAiChatCompletions, handleAiModels } from "./ai/proxy.js";
 
@@ -145,12 +149,18 @@ export function createServer(): express.Express {
 
       if (sessionId) {
         const submission = await candidateSessionStore.findSubmissionBySessionId(sessionId);
-        res.json({ submissions: submission ? [submission] : [] });
+        res.json({
+          submissions: submission
+            ? [await attachCalculationDetails(submission, candidateSessionStore)]
+            : [],
+        });
         return;
       }
 
       const submissions = await candidateSessionStore.listSubmissions({ assessmentId, limit: rawLimit });
-      res.json({ submissions });
+      res.json({
+        submissions: await attachCalculationDetailsToMany(submissions, candidateSessionStore),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown submission list error";
       logger.error("Failed to list candidate submissions", { message });
@@ -172,7 +182,10 @@ export function createServer(): express.Express {
           assessmentId: req.params.assessmentId,
           limit: rawLimit,
         });
-        res.json({ assessmentId: req.params.assessmentId, submissions });
+        res.json({
+          assessmentId: req.params.assessmentId,
+          submissions: await attachCalculationDetailsToMany(submissions, candidateSessionStore),
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown assessment submission lookup error";
         logger.error("Failed to fetch assessment submissions", { message });
@@ -188,7 +201,7 @@ export function createServer(): express.Express {
         res.status(404).json({ status: "error", message: "Submission not found" });
         return;
       }
-      res.json(result);
+      res.json(await attachCalculationDetails(result, candidateSessionStore));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown submission lookup error";
       logger.error("Failed to fetch candidate submission", { message });
@@ -203,7 +216,7 @@ export function createServer(): express.Express {
         res.status(404).json({ status: "error", message: "Submission not found" });
         return;
       }
-      res.json(result);
+      res.json(await attachCalculationDetails(result, candidateSessionStore));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown submission lookup error";
       logger.error("Failed to fetch candidate submission", { message });
@@ -218,7 +231,10 @@ export function createServer(): express.Express {
         assessmentId: req.params.assessmentId,
         limit: rawLimit,
       });
-      res.json({ assessmentId: req.params.assessmentId, submissions });
+      res.json({
+        assessmentId: req.params.assessmentId,
+        submissions: await attachCalculationDetailsToMany(submissions, candidateSessionStore),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown assessment evaluation lookup error";
       logger.error("Failed to fetch assessment evaluation results", { message });
@@ -233,7 +249,7 @@ export function createServer(): express.Express {
         res.status(404).json({ status: "error", message: "Evaluation not found" });
         return;
       }
-      res.json(result);
+      res.json(await attachCalculationDetails(result, candidateSessionStore));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown evaluation lookup error";
       logger.error("Failed to fetch evaluation result", { message });

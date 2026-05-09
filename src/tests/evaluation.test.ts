@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { CandidateSessionStore } from "../candidate/store.js";
 import { hashToken } from "../candidate/tokens.js";
 import { queueCandidateSubmission, computeOverallScore } from "../candidate/evaluation.js";
+import { attachCalculationDetails } from "../candidate/evaluationDetails.js";
 import { summarizeSubmittedCaseResults } from "../assessment/hiddenTests.js";
 
 test("candidate session store records submit token and submission lookup", async () => {
@@ -122,6 +123,76 @@ test("computeOverallScore uses rubric weights", () => {
   ]);
 
   assert.equal(score, 74);
+});
+
+test("calculation details expose scoring inputs and sanitized AI evidence", async () => {
+  const store = new CandidateSessionStore(":memory:", "https://backend.example.com");
+  const created = await store.createPendingSession({
+    assessmentId: "assessment-123",
+    artifactPath: "/tmp/artifact",
+  });
+  await store.createSubmission({
+    submissionId: "submission-1",
+    sessionId: created.record.sessionId,
+    assessmentId: created.record.assessmentId,
+    submitNotes: "Fixed the issue and verified it.",
+  });
+  await store.markSubmissionSucceeded({
+    sessionId: created.record.sessionId,
+    hiddenTestResult: {
+      status: "passed",
+      ecosystem: "node",
+      wrapperEntrypoints: ["hidden-tests/wrapper.js"],
+      notes: ["Compared against baseline."],
+      cases: [
+        { caseId: "control-1", category: "control", matchedBaseline: true },
+        { caseId: "bug-1", category: "exposes_bug", matchedBaseline: true },
+      ],
+      controlPassed: 1,
+      controlTotal: 1,
+      exposingPassed: 1,
+      exposingTotal: 1,
+      score: 100,
+      reason: "All cases passed.",
+    },
+    dimensionScores: [
+      { name: "correctness", weight: 35, score: 100, reason: "Hidden tests passed." },
+      { name: "code_quality", weight: 25, score: 80, reason: "Readable implementation." },
+    ],
+    overallScore: 91.67,
+    finalVerdict: "pass",
+    evaluatorNotes: "Final verdict: pass",
+  });
+  await store.recordAiProxyRequest({
+    sessionId: created.record.sessionId,
+    assessmentId: created.record.assessmentId,
+    model: "gpt-test",
+    requestJson: JSON.stringify({
+      model: "gpt-test",
+      apiKey: "sk-secret1234567890",
+      messages: [{ role: "user", content: "help debug this" }],
+    }),
+    responseBody: JSON.stringify({ choices: [{ message: { content: "try the parser" } }] }),
+    status: "succeeded",
+    providerStatus: 200,
+  });
+
+  const submission = await store.findSubmissionBySessionId(created.record.sessionId);
+  assert(submission);
+  const detailed = await attachCalculationDetails(submission, store);
+
+  assert(detailed.calculationDetails);
+  assert.match(detailed.calculationDetails.scoreFormula, /correctness/);
+  assert.deepEqual(
+    detailed.calculationDetails.weightedScoreInputs.map((input) => input.weightedContribution),
+    [58.33, 33.33],
+  );
+  assert.equal(detailed.calculationDetails.aiUsageSummary.requestCount, 1);
+  assert.equal(detailed.calculationDetails.aiUsageSummary.successfulRequestCount, 1);
+  assert.equal(detailed.calculationDetails.aiProxyRequests.length, 1);
+  assert.match(detailed.calculationDetails.aiProxyRequests[0].requestJson, /\[REDACTED/);
+  assert.doesNotMatch(detailed.calculationDetails.aiProxyRequests[0].requestJson, /sk-secret/);
+  assert.equal(detailed.calculationDetails.hiddenTestResult?.score, 100);
 });
 
 test("summarizeSubmittedCaseResults scores control and exposes_bug proportions separately", () => {
