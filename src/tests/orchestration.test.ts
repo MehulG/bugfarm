@@ -11,6 +11,7 @@ import {
   isForbiddenChangedFile,
   isTriviallySolved,
   parseJsonObject,
+  proposeBugDesigns,
 } from "../assessment/orchestration.js";
 
 const execFileAsync = promisify(execFile);
@@ -29,6 +30,131 @@ test("parseJsonObject extracts structured JSON from Cursor-style event output", 
     reasons: ["good"],
     risks: [],
   });
+});
+
+test("parseJsonObject extracts nested Cursor SDK message text", () => {
+  const parsed = parseJsonObject(
+    JSON.stringify({
+      type: "message",
+      message: {
+        content: [
+          {
+            type: "text",
+            text: '```json\n{"designs":[{"title":"Boundary regression","target_files":["src/app.ts"]}]}\n```',
+          },
+        ],
+      },
+    }),
+  );
+
+  assert.deepEqual(parsed, {
+    designs: [{ title: "Boundary regression", target_files: ["src/app.ts"] }],
+  });
+});
+
+test("proposeBugDesigns tolerates alternate design field names", async () => {
+  const designs = await proposeBugDesigns({
+    repoPath: "/tmp/repo",
+    difficulty: "hard",
+    bugCount: 1,
+    designCount: 1,
+    bugDiversification: true,
+    profile: {
+      workflows: [],
+      highValueTargets: [],
+      edgeCases: [],
+      testableEntryPoints: [],
+    },
+    fileTree: "src/app.ts",
+    sourceContext: "export const value = 1;",
+    runCursorAgent: async () =>
+      JSON.stringify({
+        type: "message",
+        message: {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                candidates: [
+                  {
+                    name: "Boundary regression",
+                    files: ["src/app.ts"],
+                    expectedFailureMode: "rejects a valid boundary case",
+                    hiddenTests: ["exercise boundary input"],
+                  },
+                ],
+              }),
+            },
+          ],
+        },
+      }),
+  });
+
+  assert.deepEqual(designs, [
+    {
+      id: "boundary-regression",
+      title: "Boundary regression",
+      category: "logic",
+      difficulty: "hard",
+      targetFiles: ["src/app.ts"],
+      behaviorChange: "rejects a valid boundary case",
+      whyRealistic: "",
+      hiddenTestStrategy: ["exercise boundary input"],
+      risk: "medium",
+    },
+  ]);
+});
+
+test("proposeBugDesigns reconstructs split Cursor text chunks", async () => {
+  const chunks = [
+    JSON.stringify({ type: "message", delta: "{\"candidates\":[" }),
+    JSON.stringify({ type: "message", delta: "{\"name\":\"Chunked regression\"," }),
+    JSON.stringify({ type: "message", delta: "\"files\":[\"src/queue.ts\"]," }),
+    JSON.stringify({ type: "message", delta: "\"expectedFailureMode\":\"drops queued jobs\"}" }),
+    JSON.stringify({ type: "message", delta: "]}" }),
+  ].join("\n");
+
+  const designs = await proposeBugDesigns({
+    repoPath: "/tmp/repo",
+    difficulty: "medium",
+    bugCount: 1,
+    designCount: 1,
+    bugDiversification: true,
+    profile: {
+      workflows: [],
+      highValueTargets: [],
+      edgeCases: [],
+      testableEntryPoints: [],
+    },
+    fileTree: "src/queue.ts",
+    sourceContext: "export function enqueue() {}",
+    runCursorAgent: async () => chunks,
+  });
+
+  assert.equal(designs[0].title, "Chunked regression");
+  assert.deepEqual(designs[0].targetFiles, ["src/queue.ts"]);
+});
+
+test("proposeBugDesigns reports a useful preview when no JSON design is found", async () => {
+  await assert.rejects(
+    proposeBugDesigns({
+      repoPath: "/tmp/repo",
+      difficulty: "medium",
+      bugCount: 1,
+      designCount: 1,
+      bugDiversification: true,
+      profile: {
+        workflows: [],
+        highValueTargets: [],
+        edgeCases: [],
+        testableEntryPoints: [],
+      },
+      fileTree: "src/app.ts",
+      sourceContext: "export const value = 1;",
+      runCursorAgent: async () => "I cannot produce JSON for this repository.",
+    }),
+    /Bug design orchestration did not produce any valid designs/,
+  );
 });
 
 test("orchestration gates reject forbidden files and trivial solver results", () => {

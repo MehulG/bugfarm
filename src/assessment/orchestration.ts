@@ -259,13 +259,24 @@ ${input.sourceContext}
     prompt,
     model: config.modelName,
   });
-  const parsed = parseJsonObject(output) as { designs?: unknown[] } | undefined;
-  const designs = Array.isArray(parsed?.designs)
-    ? parsed.designs.map(toBugDesign).filter((design): design is BugDesign => Boolean(design))
-    : [];
+  const parsed = parseJsonValue(output) as { designs?: unknown[]; bugDesigns?: unknown[]; candidates?: unknown[] } | unknown[] | undefined;
+  const rawDesigns = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.designs)
+      ? parsed.designs
+      : Array.isArray(parsed?.bugDesigns)
+        ? parsed.bugDesigns
+        : Array.isArray(parsed?.candidates)
+          ? parsed.candidates
+          : [];
+  const designs = rawDesigns
+    .map((design, index) => toBugDesign(design, index, input.difficulty))
+    .filter((design): design is BugDesign => Boolean(design));
 
   if (designs.length === 0) {
-    throw new Error("Bug design orchestration did not produce any valid designs.");
+    throw new Error(
+      `Bug design orchestration did not produce any valid designs. Cursor output preview: ${summarizeCursorOutput(output)}`,
+    );
   }
 
   return designs.slice(0, input.designCount);
@@ -628,51 +639,164 @@ export function parseJsonObject(text: string): Record<string, unknown> | undefin
   return undefined;
 }
 
+function parseJsonValue(text: string): unknown {
+  const candidates = collectJsonCandidates(text);
+  for (const candidate of candidates.reverse()) {
+    try {
+      const parsed = JSON.parse(candidate) as unknown;
+      if (parsed && typeof parsed === "object") {
+        return parsed;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return undefined;
+}
+
 function collectJsonCandidates(text: string): string[] {
   const values: string[] = [text];
+  const eventStringParts: string[] = [];
   for (const line of text.split("\n")) {
     const trimmed = line.trim();
     if (!trimmed) {
       continue;
     }
     try {
-      const event = JSON.parse(trimmed) as { text?: string; output?: string; content?: unknown };
-      if (typeof event.text === "string") {
-        values.push(event.text);
-      }
-      if (typeof event.output === "string") {
-        values.push(event.output);
-      }
-      if (typeof event.content === "string") {
-        values.push(event.content);
-      }
+      const event = JSON.parse(trimmed);
+      const lineValues: string[] = [];
+      const focusedValues: string[] = [];
+      collectStringValues(event, lineValues);
+      collectFocusedStringValues(event, undefined, focusedValues);
+      values.push(...focusedValues);
+      values.push(...lineValues);
+      eventStringParts.push(...focusedValues);
     } catch {
       // Not an event envelope.
     }
   }
+  if (eventStringParts.length > 0) {
+    values.push(eventStringParts.join(""));
+    values.push(eventStringParts.join("\n"));
+  }
 
   const candidates: string[] = [];
   for (const value of values) {
-    const start = value.indexOf("{");
-    const end = value.lastIndexOf("}");
-    if (start !== -1 && end > start) {
-      candidates.push(value.slice(start, end + 1));
+    for (const fenced of value.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)) {
+      candidates.push(fenced[1].trim());
+    }
+    candidates.push(...collectBalancedJson(value));
+    const trimmed = value.trim();
+    if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+      candidates.push(trimmed);
     }
   }
   return candidates;
 }
 
-function toBugDesign(value: unknown): BugDesign | undefined {
+function collectStringValues(value: unknown, output: string[]): void {
+  if (typeof value === "string") {
+    output.push(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectStringValues(item, output);
+    }
+    return;
+  }
+  if (!value || typeof value !== "object") {
+    return;
+  }
+  for (const item of Object.values(value)) {
+    collectStringValues(item, output);
+  }
+}
+
+function collectFocusedStringValues(value: unknown, key: string | undefined, output: string[]): void {
+  const textKeys = new Set(["text", "output", "content", "delta", "message"]);
+  if (typeof value === "string") {
+    if (key && textKeys.has(key)) {
+      output.push(value);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectFocusedStringValues(item, key, output);
+    }
+    return;
+  }
+  if (!value || typeof value !== "object") {
+    return;
+  }
+  for (const [childKey, item] of Object.entries(value)) {
+    collectFocusedStringValues(item, childKey, output);
+  }
+}
+
+function collectBalancedJson(value: string): string[] {
+  const snippets: string[] = [];
+  for (const opening of ["{", "["]) {
+    const closing = opening === "{" ? "}" : "]";
+    for (let index = 0; index < value.length; index += 1) {
+      if (value[index] !== opening) {
+        continue;
+      }
+      let depth = 0;
+      let inString = false;
+      let escaped = false;
+      for (let cursor = index; cursor < value.length; cursor += 1) {
+        const char = value[cursor];
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === "\\") {
+          escaped = true;
+          continue;
+        }
+        if (char === "\"") {
+          inString = !inString;
+          continue;
+        }
+        if (inString) {
+          continue;
+        }
+        if (char === opening) {
+          depth += 1;
+        } else if (char === closing) {
+          depth -= 1;
+          if (depth === 0) {
+            snippets.push(value.slice(index, cursor + 1));
+            index = cursor;
+            break;
+          }
+        }
+      }
+    }
+  }
+  return snippets;
+}
+
+function toBugDesign(
+  value: unknown,
+  index: number,
+  fallbackDifficulty: BugDesign["difficulty"],
+): BugDesign | undefined {
   if (!value || typeof value !== "object") {
     return undefined;
   }
   const record = value as Record<string, unknown>;
-  const id = typeof record.id === "string" && record.id.trim() ? record.id.trim() : undefined;
-  const title = typeof record.title === "string" && record.title.trim() ? record.title.trim() : undefined;
+  const title = firstString(record.title, record.name, record.summary, record.behaviorChange, record.expectedFailureMode);
+  const id = firstString(record.id) || slugify(title || `design-${index + 1}`);
   const difficulty = record.difficulty;
   const risk = record.risk;
+  const normalizedDifficulty = ["easy", "medium", "hard"].includes(String(difficulty))
+    ? (difficulty as BugDesign["difficulty"])
+    : fallbackDifficulty;
 
-  if (!id || !title || !["easy", "medium", "hard"].includes(String(difficulty))) {
+  if (!id || !title) {
     return undefined;
   }
 
@@ -680,13 +804,58 @@ function toBugDesign(value: unknown): BugDesign | undefined {
     id,
     title,
     category: typeof record.category === "string" ? record.category : "logic",
-    difficulty: difficulty as BugDesign["difficulty"],
-    targetFiles: stringArray(record.targetFiles),
-    behaviorChange: typeof record.behaviorChange === "string" ? record.behaviorChange : title,
-    whyRealistic: typeof record.whyRealistic === "string" ? record.whyRealistic : "",
-    hiddenTestStrategy: stringArray(record.hiddenTestStrategy),
+    difficulty: normalizedDifficulty,
+    targetFiles: firstStringArray(record.targetFiles, record.target_files, record.files, record.changedFiles),
+    behaviorChange: firstString(record.behaviorChange, record.expectedFailureMode, record.failureMode) || title,
+    whyRealistic: firstString(record.whyRealistic, record.rationale, record.difficultyRationale) || "",
+    hiddenTestStrategy: firstStringArray(record.hiddenTestStrategy, record.hidden_test_strategy, record.hiddenTests),
     risk: ["low", "medium", "high"].includes(String(risk)) ? (risk as BugDesign["risk"]) : "medium",
   };
+}
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function firstStringArray(...values: unknown[]): string[] {
+  for (const value of values) {
+    const items = stringArray(value);
+    if (items.length > 0) {
+      return items;
+    }
+  }
+  return [];
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
+}
+
+function summarizeCursorOutput(output: string): string {
+  const parts: string[] = [];
+  for (const line of output.split("\n")) {
+    if (!line.trim()) {
+      continue;
+    }
+    try {
+      const lineValues: string[] = [];
+      collectStringValues(JSON.parse(line), lineValues);
+      parts.push(...lineValues);
+    } catch {
+      parts.push(line);
+    }
+  }
+  const summary = (parts.join(" ") || output).replace(/\s+/g, " ").trim();
+  return summary.slice(0, 500) || "<empty>";
 }
 
 function stringArray(value: unknown): string[] {

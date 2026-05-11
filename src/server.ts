@@ -1,16 +1,9 @@
 import { apiReference } from "@scalar/express-api-reference";
 import express from "express";
 import { generateAssessment } from "./assessment/generateAssessment.js";
-import { generateBugArtifact, validateGenerateBugRequest } from "./assessment/generateBug.js";
-import { generateTestsForArtifact, validateGenerateTestsRequest } from "./assessment/generateTests.js";
-import type {
-  GenerateAssessmentRequest,
-  GenerateBugRequest,
-  GenerateTestsRequest,
-} from "./assessment/types.js";
+import type { GenerateAssessmentRequest } from "./assessment/types.js";
 import { validateGenerateAssessmentRequest } from "./assessment/generateAssessment.js";
-import { seedBug, validateSeedBugRequest } from "./codesheep/seedBug.js";
-import type { SeedBugError, SeedBugRequest } from "./codesheep/types.js";
+import type { SeedBugError } from "./codesheep/types.js";
 import { jobStore } from "./jobs/store.js";
 import type { JobOperation } from "./jobs/types.js";
 import { openApiDocument } from "./openapi.js";
@@ -286,69 +279,6 @@ export function createServer(): express.Express {
     }
   });
 
-  app.post("/seed-bug", async (req, res) => {
-    try {
-      const payload = req.body as SeedBugRequest;
-      await validateSeedBugRequest(payload);
-      const job = jobStore.createJob({
-        operation: "seed-bug",
-        runner: () => seedBug(payload),
-      });
-      res.status(202).location(job.pollUrl).json(job);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      const response: SeedBugError = {
-        status: "error",
-        message,
-      };
-
-      logger.error("Failed to seed bug", { message });
-      res.status(statusCodeForError(message)).json(response);
-    }
-  });
-
-  app.post("/generate-bug", async (req, res) => {
-    try {
-      const payload = req.body as GenerateBugRequest;
-      validateGenerateBugRequest(payload);
-      const job = jobStore.createJob({
-        operation: "generate-bug",
-        runner: () => generateBugArtifact(payload),
-      });
-      res.status(202).location(job.pollUrl).json(job);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      const response: SeedBugError = {
-        status: "error",
-        message,
-      };
-
-      logger.error("Failed to queue generate-bug", { message });
-      res.status(statusCodeForError(message)).json(response);
-    }
-  });
-
-  app.post("/generate-tests", async (req, res) => {
-    try {
-      const payload = req.body as GenerateTestsRequest;
-      await validateGenerateTestsRequest(payload);
-      const job = jobStore.createJob({
-        operation: "generate-tests",
-        runner: () => generateTestsForArtifact(payload),
-      });
-      res.status(202).location(job.pollUrl).json(job);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      const response: SeedBugError = {
-        status: "error",
-        message,
-      };
-
-      logger.error("Failed to queue generate-tests", { message });
-      res.status(statusCodeForError(message)).json(response);
-    }
-  });
-
   app.post("/generate-assessment", async (req, res) => {
     try {
       const payload = req.body as GenerateAssessmentRequest;
@@ -383,20 +313,8 @@ export function createServer(): express.Express {
     res.json(job);
   });
 
-  app.get("/seed-bug/jobs/:jobId", (req, res) => {
-    handleOperationJobLookup(req.params.jobId, "seed-bug", res);
-  });
-
   app.get("/generate-assessment/jobs/:jobId", (req, res) => {
     handleOperationJobLookup(req.params.jobId, "generate-assessment", res);
-  });
-
-  app.get("/generate-bug/jobs/:jobId", (req, res) => {
-    handleOperationJobLookup(req.params.jobId, "generate-bug", res);
-  });
-
-  app.get("/generate-tests/jobs/:jobId", (req, res) => {
-    handleOperationJobLookup(req.params.jobId, "generate-tests", res);
   });
 
   return app;
