@@ -460,8 +460,12 @@ function statusCodeForError(message: string): number {
     message === "assessment.json is invalid" ||
     message === "Repo path does not exist or is not a supported GitHub repo path" ||
     message === "bugDiversification must be a boolean" ||
+    message === "orchestrationMode must be standard or legacy" ||
+    message === "adversarialSolver must be a boolean" ||
     message.startsWith("difficulty must be") ||
-    message.startsWith("bugCount must be")
+    message.startsWith("bugCount must be") ||
+    message.startsWith("designCount must be") ||
+    message.startsWith("seedAttemptCount must be")
   ) {
     return 400;
   }

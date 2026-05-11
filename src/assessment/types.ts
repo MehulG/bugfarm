@@ -8,6 +8,10 @@ export type GenerateBugRequest = SeedBugRequest & {
 export type GenerateAssessmentRequest = SeedBugRequest & {
   role?: string;
   assessmentName?: string;
+  orchestrationMode?: "standard" | "legacy";
+  designCount?: number;
+  seedAttemptCount?: number;
+  adversarialSolver?: boolean;
 };
 
 export type GenerateTestsRequest = {
@@ -71,6 +75,61 @@ export type AssessmentRubric = {
   area?: string;
   language?: string;
   role?: string;
+};
+
+export type RepoProfile = {
+  workflows: string[];
+  highValueTargets: string[];
+  edgeCases: string[];
+  testableEntryPoints: string[];
+  notes?: string;
+};
+
+export type BugDesign = {
+  id: string;
+  title: string;
+  category: string;
+  difficulty: "easy" | "medium" | "hard";
+  targetFiles: string[];
+  behaviorChange: string;
+  whyRealistic: string;
+  hiddenTestStrategy: string[];
+  risk: "low" | "medium" | "high";
+};
+
+export type AdversarialSolverResult = {
+  attempted: boolean;
+  solved: boolean;
+  hiddenScore?: number;
+  filesInspected?: number;
+  changedFiles: string[];
+  summary: string;
+  tooEasy: boolean;
+};
+
+export type AssignmentQualityReport = {
+  accepted: boolean;
+  score: number;
+  reasons: string[];
+  risks: string[];
+};
+
+export type OrchestrationAttempt = {
+  design: BugDesign;
+  artifactPath?: string;
+  filesChanged: string[];
+  validationStatus?: AssessmentValidation["status"];
+  rejectedReason?: string;
+  solver?: AdversarialSolverResult;
+  quality?: AssignmentQualityReport;
+};
+
+export type AssessmentOrchestrationEvidence = {
+  mode: "standard" | "legacy";
+  profile?: RepoProfile;
+  designs?: BugDesign[];
+  selectedDesign?: BugDesign;
+  attempts?: OrchestrationAttempt[];
 };
 
 export type CandidateEvaluationDimensionScore = {
@@ -174,6 +233,7 @@ export type AssessmentMetadata = {
   filesChanged: string[];
   validation?: AssessmentValidation;
   rubric: AssessmentRubric;
+  orchestration?: AssessmentOrchestrationEvidence;
 };
 
 export type GenerateBugSuccess = {
@@ -194,6 +254,7 @@ export type GenerateBugSuccess = {
   taskPath: string;
   patchPath: string;
   rubricPath: string;
+  orchestration?: AssessmentOrchestrationEvidence;
 };
 
 export type GenerateTestsSuccess = {
@@ -210,6 +271,7 @@ export type GenerateTestsSuccess = {
   taskPath: string;
   patchPath: string;
   rubricPath: string;
+  orchestration?: AssessmentOrchestrationEvidence;
 };
 
 export type GenerateAssessmentSuccess = {
@@ -230,4 +292,5 @@ export type GenerateAssessmentSuccess = {
   taskPath: string;
   patchPath: string;
   rubricPath: string;
+  orchestration?: AssessmentOrchestrationEvidence;
 };

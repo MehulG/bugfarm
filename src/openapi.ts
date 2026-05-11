@@ -506,6 +506,10 @@ export const openApiDocument = {
                 bugDiversification: true,
                 role: "backend engineer",
                 assessmentName: "Backend Debugging Screen",
+                orchestrationMode: "standard",
+                designCount: 5,
+                seedAttemptCount: 2,
+                adversarialSolver: true,
               },
             },
           },
@@ -1025,6 +1029,32 @@ export const openApiDocument = {
                 description: "Optional display name used for artifact ID and TASK.md title.",
                 examples: ["Backend Debugging Screen"],
               },
+              orchestrationMode: {
+                type: "string",
+                enum: ["standard", "legacy"],
+                default: "standard",
+                description:
+                  "standard uses the multi-stage bug design, validation, and adversarial-solver pipeline. legacy uses the original generate-bug plus generate-tests flow.",
+              },
+              designCount: {
+                type: "integer",
+                minimum: 1,
+                maximum: 10,
+                default: 5,
+                description: "Number of bug designs to ask Cursor to propose before seeding attempts.",
+              },
+              seedAttemptCount: {
+                type: "integer",
+                minimum: 1,
+                maximum: 10,
+                default: 2,
+                description: "Maximum number of proposed designs to seed and validate.",
+              },
+              adversarialSolver: {
+                type: "boolean",
+                default: true,
+                description: "Whether to run one adversarial candidate-style solver pass before accepting an assignment.",
+              },
             },
           },
         ],
@@ -1086,6 +1116,7 @@ export const openApiDocument = {
           taskPath: { type: "string" },
           patchPath: { type: "string" },
           rubricPath: { type: "string" },
+          orchestration: { $ref: "#/components/schemas/AssessmentOrchestrationEvidence" },
         },
       },
       GenerateTestsSuccess: {
@@ -1120,6 +1151,7 @@ export const openApiDocument = {
           taskPath: { type: "string" },
           patchPath: { type: "string" },
           rubricPath: { type: "string" },
+          orchestration: { $ref: "#/components/schemas/AssessmentOrchestrationEvidence" },
         },
       },
       GenerateAssessmentSuccess: {
@@ -1215,6 +1247,24 @@ export const openApiDocument = {
         },
         description:
           "Git evidence for the committed main branch snapshot used during candidate evaluation. Exposed as submission.git and calculationDetails.git.",
+      },
+      AssessmentOrchestrationEvidence: {
+        type: "object",
+        properties: {
+          mode: { type: "string", enum: ["standard", "legacy"] },
+          profile: { type: "object", additionalProperties: true },
+          designs: {
+            type: "array",
+            items: { type: "object", additionalProperties: true },
+          },
+          selectedDesign: { type: "object", additionalProperties: true },
+          attempts: {
+            type: "array",
+            items: { type: "object", additionalProperties: true },
+          },
+        },
+        description:
+          "Evidence from the multi-stage assignment generation pipeline, including profile, proposed bug designs, selected design, rejected attempts, solver result, and quality gate output.",
       },
       AssessmentValidation: {
         type: "object",
