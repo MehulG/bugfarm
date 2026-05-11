@@ -7,6 +7,14 @@ import type { CandidateSubmissionGitEvidence } from "../assessment/types.js";
 
 const execFileAsync = promisify(execFile);
 const PROJECT_DIR = "/home/coder/project";
+const DOCKER_GIT_MARKERS = new Set([
+  "OK",
+  "BRANCH",
+  "DIRTY",
+  "NOT_GIT",
+  "MISSING_BASELINE",
+  "MISSING_MAIN",
+]);
 
 export class CandidateGitPreflightError extends Error {
   readonly statusCode = 409;
@@ -150,18 +158,19 @@ export async function snapshotDockerCommittedMain(input: {
   return evidence;
 }
 
-function parseDockerGitEvidence(stdout: string): CandidateSubmissionGitEvidence {
+export function parseDockerGitEvidence(stdout: string): CandidateSubmissionGitEvidence {
   const lines = stdout.split("\n");
-  const marker = lines[0]?.trim();
+  const markerIndex = lines.findIndex((line) => DOCKER_GIT_MARKERS.has(line.trim()));
+  const marker = markerIndex === -1 ? undefined : lines[markerIndex]?.trim();
 
   if (marker === "BRANCH") {
     throw new CandidateGitPreflightError(
-      `Please switch to the main branch before submitting. Current branch: ${lines[1]?.trim() || "(detached HEAD)"}`,
+      `Please switch to the main branch before submitting. Current branch: ${lines[markerIndex + 1]?.trim() || "(detached HEAD)"}`,
     );
   }
 
   if (marker === "DIRTY") {
-    throw new CandidateGitPreflightError(buildCommitRequiredMessage(lines.slice(1).join("\n")));
+    throw new CandidateGitPreflightError(buildCommitRequiredMessage(lines.slice(markerIndex + 1).join("\n")));
   }
 
   if (marker === "NOT_GIT") {
@@ -185,10 +194,10 @@ function parseDockerGitEvidence(stdout: string): CandidateSubmissionGitEvidence 
   }
 
   return {
-    branch: lines[1]?.trim() || "main",
-    baselineCommit: lines[2]?.trim() || "",
-    submittedCommit: lines[3]?.trim() || "",
-    changedFiles: lines.slice(4).map((file) => file.trim()).filter(Boolean),
+    branch: lines[markerIndex + 1]?.trim() || "main",
+    baselineCommit: lines[markerIndex + 2]?.trim() || "",
+    submittedCommit: lines[markerIndex + 3]?.trim() || "",
+    changedFiles: lines.slice(markerIndex + 4).map((file) => file.trim()).filter(Boolean),
   };
 }
 

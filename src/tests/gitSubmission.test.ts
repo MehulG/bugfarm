@@ -7,6 +7,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import {
   CandidateGitPreflightError,
+  parseDockerGitEvidence,
   snapshotLocalCommittedMain,
   validateLocalSubmissionGit,
 } from "../candidate/gitSubmission.js";
@@ -73,6 +74,29 @@ test("validateLocalSubmissionGit reports missing baseline tag separately", async
       error instanceof CandidateGitPreflightError &&
       error.message.includes("codesheep-baseline"),
   );
+});
+
+test("parseDockerGitEvidence tolerates harmless leading command output", () => {
+  const evidence = parseDockerGitEvidence(
+    [
+      "/usr/bin/xz",
+      "OK",
+      "main",
+      "e1ad2f75b3c50d5429376b121d4b82a3c4bfd96e",
+      "980b6c5fc14760c964349e6fa26ff44f15b9101d",
+      "src/app.rs",
+      "src/queue.rs",
+      "src/types.rs",
+      "",
+    ].join("\n"),
+  );
+
+  assert.deepEqual(evidence, {
+    branch: "main",
+    baselineCommit: "e1ad2f75b3c50d5429376b121d4b82a3c4bfd96e",
+    submittedCommit: "980b6c5fc14760c964349e6fa26ff44f15b9101d",
+    changedFiles: ["src/app.rs", "src/queue.rs", "src/types.rs"],
+  });
 });
 
 test("snapshotLocalCommittedMain archives only committed main and reports baseline diff files", async () => {
