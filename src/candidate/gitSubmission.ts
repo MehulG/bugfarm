@@ -107,13 +107,13 @@ export async function validateDockerSubmissionGit(containerName: string): Promis
       "-lc",
       [
         "set -eu",
-        "git rev-parse --is-inside-work-tree >/dev/null",
+        'if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then printf "NOT_GIT\\n"; exit 23; fi',
         'branch="$(git branch --show-current)"',
         'if [ "$branch" != "main" ]; then printf "BRANCH\\n%s\\n" "$branch"; exit 21; fi',
-        'baseline="$(git rev-parse --verify codesheep-baseline^{commit})"',
+        'if ! baseline="$(git rev-parse --verify codesheep-baseline^{commit} 2>/dev/null)"; then printf "MISSING_BASELINE\\n"; exit 24; fi',
         'status="$(git status --short --untracked-files=all)"',
         'if [ -n "$status" ]; then printf "DIRTY\\n%s\\n" "$status"; exit 22; fi',
-        'submitted="$(git rev-parse --verify main^{commit})"',
+        'if ! submitted="$(git rev-parse --verify main^{commit} 2>/dev/null)"; then printf "MISSING_MAIN\\n"; exit 25; fi',
         'printf "OK\\n%s\\n%s\\n%s\\n" "$branch" "$baseline" "$submitted"',
         "git diff --name-only codesheep-baseline..main",
       ].join("\n"),
@@ -164,8 +164,24 @@ function parseDockerGitEvidence(stdout: string): CandidateSubmissionGitEvidence 
     throw new CandidateGitPreflightError(buildCommitRequiredMessage(lines.slice(1).join("\n")));
   }
 
+  if (marker === "NOT_GIT") {
+    throw new CandidateGitPreflightError(
+      `Backend could not find a Git repository at ${PROJECT_DIR} inside the candidate container.`,
+    );
+  }
+
+  if (marker === "MISSING_BASELINE") {
+    throw new CandidateGitPreflightError("Submission requires the codesheep-baseline Git tag.");
+  }
+
+  if (marker === "MISSING_MAIN") {
+    throw new CandidateGitPreflightError("Submission requires a valid main branch commit.");
+  }
+
   if (marker !== "OK") {
-    throw new CandidateGitPreflightError("Submission requires a clean Git repository on the main branch.");
+    throw new CandidateGitPreflightError(
+      `Backend Git preflight returned an unexpected response from ${PROJECT_DIR}: ${stdout.trim() || "(empty output)"}`,
+    );
   }
 
   return {
@@ -190,8 +206,27 @@ async function dockerProjectOutput(containerName: string, args: string[]): Promi
     if (typed.code === 22 || typed.stdout?.startsWith("DIRTY\n")) {
       return typed.stdout ?? "";
     }
+    if (
+      typed.code === 23 ||
+      typed.code === 24 ||
+      typed.code === 25 ||
+      typed.stdout?.startsWith("NOT_GIT\n") ||
+      typed.stdout?.startsWith("MISSING_BASELINE\n") ||
+      typed.stdout?.startsWith("MISSING_MAIN\n")
+    ) {
+      return typed.stdout ?? "";
+    }
     throw new CandidateGitPreflightError(
-      `Submission requires a clean Git repository on main. ${typed.stderr?.trim() || ""}`.trim(),
+      [
+        "Backend could not inspect the candidate workspace Git state.",
+        `Container: ${containerName}`,
+        `Working directory: ${PROJECT_DIR}`,
+        typed.code === undefined ? undefined : `Exit code: ${typed.code}`,
+        typed.stderr?.trim() ? `stderr: ${typed.stderr.trim()}` : undefined,
+        typed.stdout?.trim() ? `stdout: ${typed.stdout.trim()}` : undefined,
+      ]
+        .filter(Boolean)
+        .join("\n"),
     );
   }
 }

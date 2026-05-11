@@ -63,6 +63,18 @@ test("validateLocalSubmissionGit blocks non-main and missing Git repositories", 
   );
 });
 
+test("validateLocalSubmissionGit reports missing baseline tag separately", async () => {
+  const repo = await createBaselineRepo();
+  await git(repo, ["tag", "-d", "codesheep-baseline"]);
+
+  await assert.rejects(
+    validateLocalSubmissionGit(repo),
+    (error) =>
+      error instanceof CandidateGitPreflightError &&
+      error.message.includes("codesheep-baseline"),
+  );
+});
+
 test("snapshotLocalCommittedMain archives only committed main and reports baseline diff files", async () => {
   const repo = await createBaselineRepo();
   await writeFile(path.join(repo, "src", "app.ts"), "export const value = 2;\n", "utf8");
