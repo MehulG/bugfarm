@@ -22,8 +22,13 @@ import {
 } from "./candidate/evaluationDetails.js";
 import { candidateSessionStore } from "./candidate/store.js";
 import { handleAiChatCompletions, handleAiModels } from "./ai/proxy.js";
+import { registerCompanyRoutes, type CompanyRoutesDeps } from "./company/routes.js";
 
-export function createServer(): express.Express {
+export type ServerDeps = {
+  company?: CompanyRoutesDeps;
+};
+
+export function createServer(deps: ServerDeps = {}): express.Express {
   const app = express();
 
   app.use(express.json({ limit: "1mb" }));
@@ -36,6 +41,8 @@ export function createServer(): express.Express {
   app.get("/openapi.json", (_req, res) => {
     res.json(openApiDocument);
   });
+
+  registerCompanyRoutes(app, deps.company);
 
   app.use(
     "/docs",
