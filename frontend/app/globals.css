@@ -507,6 +507,20 @@ select:focus {
   font-size: 12px;
 }
 
+.copy-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.copy-value > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .empty-state {
   min-height: 100px;
   padding: 16px;

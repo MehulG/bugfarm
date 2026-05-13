@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft, GitCommitHorizontal, GitPullRequestArrow, TestTube2 } from "lucide-react";
+import { ArrowLeft, Copy, GitCommitHorizontal, GitPullRequestArrow, TestTube2 } from "lucide-react";
 import { StatusPill } from "@/components/status-pill";
 import { getCandidateDetail } from "@/lib/api";
 import type { CandidateDetailResponse } from "@/lib/types";
@@ -13,6 +13,7 @@ export function CandidateDetail() {
   const [detail, setDetail] = useState<CandidateDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   useEffect(() => {
     void getCandidateDetail(params.id)
@@ -48,6 +49,15 @@ export function CandidateDetail() {
   const submission = detail.latestSubmission;
   const hiddenTests = submission?.hiddenTestResult;
   const aiUsage = submission?.calculationDetails?.aiUsageSummary;
+
+  async function copyCandidateUrl() {
+    if (!assignment?.candidateLaunchUrl) {
+      return;
+    }
+    await navigator.clipboard.writeText(assignment.candidateLaunchUrl);
+    setCopiedUrl(true);
+    window.setTimeout(() => setCopiedUrl(false), 1600);
+  }
 
   return (
     <div className="page-stack">
@@ -111,6 +121,27 @@ export function CandidateDetail() {
                 <div>
                   <dt>Bug count</dt>
                   <dd>{assignment.bugCount}</dd>
+                </div>
+                <div>
+                  <dt>Candidate URL</dt>
+                  <dd>
+                    {assignment.candidateLaunchUrl ? (
+                      <span className="copy-value">
+                        <span>{assignment.candidateLaunchUrl}</span>
+                        <button
+                          className="icon-button"
+                          type="button"
+                          onClick={copyCandidateUrl}
+                          aria-label="Copy candidate URL"
+                          title={copiedUrl ? "Copied" : "Copy candidate URL"}
+                        >
+                          <Copy size={13} />
+                        </button>
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </dd>
                 </div>
               </dl>
               <p className="body-copy">{assignment.summary ?? assignment.errorText ?? "Generation is in progress."}</p>
