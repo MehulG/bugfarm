@@ -1,25 +1,25 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildBugReportRepairPrompt } from "../codesheep/seedBug.js";
+import { validateSeedBugRequest } from "../codesheep/seedBug.js";
 
-test("buildBugReportRepairPrompt asks for report-only recovery", () => {
-  const prompt = buildBugReportRepairPrompt({
-    repoPath: "/tmp/repo",
-    difficulty: "medium",
-    bugCount: 2,
-    filesChanged: ["src/auth.ts", "src/session.ts"],
-    previousFinalJson: {
-      summary: "Seeded auth bugs",
+test("validateSeedBugRequest accepts the simple single-call bug generation shape", async () => {
+  await assert.doesNotReject(
+    validateSeedBugRequest({
+      repoPath: "/tmp/repo",
       difficulty: "medium",
-      bugCount: 2,
-      filesChanged: ["src/auth.ts", "src/session.ts"],
-      bugReportPath: "BUG_REPORT.md",
-    },
-  });
+      language: "typescript",
+      area: "auth",
+      bugCount: 1,
+    }),
+  );
+});
 
-  assert.match(prompt, /Create BUG_REPORT\.md at the repository root/);
-  assert.match(prompt, /Inspect the current git diff and changed files/);
-  assert.match(prompt, /Do not modify source code unless it is absolutely required/);
-  assert.match(prompt, /src\/auth\.ts/);
-  assert.match(prompt, /"bugReportPath": "BUG_REPORT.md"/);
+test("validateSeedBugRequest rejects invalid bug counts", async () => {
+  await assert.rejects(
+    validateSeedBugRequest({
+      repoPath: "/tmp/repo",
+      bugCount: 0,
+    }),
+    /bugCount must be between 1 and 10/,
+  );
 });

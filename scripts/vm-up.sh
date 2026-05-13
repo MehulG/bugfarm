@@ -6,6 +6,60 @@ ENV_FILE="$ROOT_DIR/.env.vm"
 COMPOSE_FILE="$ROOT_DIR/compose.vm.yaml"
 TEMPLATE_DIR="$ROOT_DIR/coder template"
 
+usage() {
+  cat <<EOF
+Usage: $0 [--all] [--coder] [--backend] [--frontend]
+
+Starts Codesheep VM services. With no flags, starts all services.
+
+Options:
+  --all        Start Coder, backend, and frontend.
+  --coder      Start/bootstrap Coder and push the workspace template.
+  --backend    Start the Codesheep backend.
+  --frontend   Start the Codesheep frontend.
+  --help       Show this help.
+EOF
+}
+
+START_CODER=0
+START_BACKEND=0
+START_FRONTEND=0
+
+if [ "$#" -eq 0 ]; then
+  START_CODER=1
+  START_BACKEND=1
+  START_FRONTEND=1
+fi
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --all)
+      START_CODER=1
+      START_BACKEND=1
+      START_FRONTEND=1
+      ;;
+    --coder)
+      START_CODER=1
+      ;;
+    --backend)
+      START_BACKEND=1
+      ;;
+    --frontend)
+      START_FRONTEND=1
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
+
 if [ ! -f "$ENV_FILE" ]; then
   cp "$ROOT_DIR/.env.vm.example" "$ENV_FILE"
   echo "Created $ENV_FILE from .env.vm.example."
@@ -44,6 +98,10 @@ require_command() {
     echo "Missing required command: $1" >&2
     exit 1
   fi
+}
+
+compose() {
+  docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
 
 upsert_env() {
@@ -106,16 +164,33 @@ set -a
 . "$ENV_FILE"
 set +a
 
-require_env CODER_ACCESS_URL
-require_env PUBLIC_BACKEND_URL
-require_env CURSOR_API_KEY
-require_env AI_UPSTREAM_API_KEY
-require_env AI_UPSTREAM_MODEL
+if [ "$START_CODER" -eq 1 ]; then
+  require_env CODER_ACCESS_URL
+  require_env PUBLIC_BACKEND_URL
+fi
+
+if [ "$START_BACKEND" -eq 1 ]; then
+  require_env PUBLIC_BACKEND_URL
+  require_env CURSOR_API_KEY
+  require_env AI_UPSTREAM_API_KEY
+  require_env AI_UPSTREAM_MODEL
+  if [ "$START_CODER" -ne 1 ]; then
+    require_env CODER_API_TOKEN
+    require_env CODER_ORGANIZATION_ID
+    require_env CODER_TEMPLATE_ID
+  fi
+fi
+
+if [ "$START_FRONTEND" -eq 1 ]; then
+  require_env PUBLIC_BACKEND_URL
+fi
 
 require_command docker
-require_command coder
-require_command curl
-require_command python3
+if [ "$START_CODER" -eq 1 ]; then
+  require_command coder
+  require_command curl
+  require_command python3
+fi
 
 CODER_TEMPLATE_NAME="${CODER_TEMPLATE_NAME:-artifact-template}"
 CODER_API_URL="${CODER_API_URL:-http://host.docker.internal:7080}"
@@ -135,12 +210,17 @@ AI_SESSION_REQUEST_LIMIT="${AI_SESSION_REQUEST_LIMIT:-100}"
 MODEL_NAME="${MODEL_NAME:-default}"
 REPO_SCAN_MAX_FILES="${REPO_SCAN_MAX_FILES:-40}"
 REPO_SCAN_MAX_CHARS="${REPO_SCAN_MAX_CHARS:-150000}"
+FRONTEND_PORT="${FRONTEND_PORT:-3001}"
+PUBLIC_FRONTEND_URL="${PUBLIC_FRONTEND_URL:-http://localhost:$FRONTEND_PORT}"
 
-mkdir -p "$ROOT_DIR/data/artifacts"
-chown -R "$CODESHEEP_HOST_UID:$CODESHEEP_HOST_GID" "$ROOT_DIR/data" 2>/dev/null || sudo chown -R "$CODESHEEP_HOST_UID:$CODESHEEP_HOST_GID" "$ROOT_DIR/data"
+if [ "$START_BACKEND" -eq 1 ]; then
+  mkdir -p "$ROOT_DIR/data/artifacts"
+  chown -R "$CODESHEEP_HOST_UID:$CODESHEEP_HOST_GID" "$ROOT_DIR/data" 2>/dev/null || sudo chown -R "$CODESHEEP_HOST_UID:$CODESHEEP_HOST_GID" "$ROOT_DIR/data"
+fi
 
+if [ "$START_CODER" -eq 1 ]; then
 echo "Starting Coder..."
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d coder-database coder
+compose up -d coder-database coder
 
 echo "Waiting for local Coder API on http://127.0.0.1:7080..."
 attempt=1
@@ -280,13 +360,40 @@ upsert_env CODER_TEMPLATE_ID "$CODER_TEMPLATE_ID"
 echo "Updated $ENV_FILE with:"
 echo "  CODER_ORGANIZATION_ID=$CODER_ORGANIZATION_ID"
 echo "  CODER_TEMPLATE_ID=$CODER_TEMPLATE_ID"
+fi
 
-echo "Starting backend..."
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build codesheep
+if [ "$START_BACKEND" -eq 1 ]; then
+  echo "Starting backend..."
+  if [ "$START_CODER" -eq 1 ]; then
+    compose up -d --build codesheep
+  else
+    compose up -d --build --no-deps codesheep
+  fi
+fi
+
+if [ "$START_FRONTEND" -eq 1 ]; then
+  echo "Starting frontend..."
+  compose up -d --build codesheep-frontend
+fi
 
 echo "Done."
-echo "Backend: $PUBLIC_BACKEND_URL"
-echo "Coder:   $CODER_ACCESS_URL"
+if [ "$START_BACKEND" -eq 1 ]; then
+  echo "Backend:  $PUBLIC_BACKEND_URL"
+fi
+if [ "$START_FRONTEND" -eq 1 ]; then
+  echo "Frontend: $PUBLIC_FRONTEND_URL"
+fi
+if [ "$START_CODER" -eq 1 ]; then
+  echo "Coder:    $CODER_ACCESS_URL"
+fi
 echo
-echo "Check backend logs:"
-echo "docker compose --env-file $ENV_FILE -f $COMPOSE_FILE logs -f codesheep"
+echo "Check logs:"
+if [ "$START_BACKEND" -eq 1 ]; then
+  echo "docker compose --env-file $ENV_FILE -f $COMPOSE_FILE logs -f codesheep"
+fi
+if [ "$START_FRONTEND" -eq 1 ]; then
+  echo "docker compose --env-file $ENV_FILE -f $COMPOSE_FILE logs -f codesheep-frontend"
+fi
+if [ "$START_CODER" -eq 1 ]; then
+  echo "docker compose --env-file $ENV_FILE -f $COMPOSE_FILE logs -f coder"
+fi

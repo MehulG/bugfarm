@@ -67,6 +67,21 @@ services:
     depends_on:
       - coder
 
+  codesheep-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        CODESHEEP_BACKEND_URL: "${PUBLIC_BACKEND_URL}"
+    image: codesheep-frontend:local
+    restart: unless-stopped
+    environment:
+      PORT: "3001"
+      HOSTNAME: "0.0.0.0"
+      CODESHEEP_BACKEND_URL: "${PUBLIC_BACKEND_URL}"
+    ports:
+      - "${FRONTEND_PORT:-3001}:3001"
+
 volumes:
   coder_data:
   coder_home:

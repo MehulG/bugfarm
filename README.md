@@ -500,9 +500,9 @@ For `/generate-tests`:
 For `/generate-assessment`:
 
 1. Validates the request and creates an in-memory background job.
-2. Runs `/generate-bug` internally.
-3. Runs `/generate-tests` internally against the generated artifact.
-4. Creates a pending candidate launch session with a secret launch URL.
+2. Profiles the target repo and asks Cursor to propose candidate bug designs.
+3. Seeds and validates selected designs with hidden tests and an adversarial solver pass.
+4. Creates a pending candidate launch session with a secret launch URL for the accepted artifact.
 5. Exposes the final result or failure through the job polling route.
 
 ## Notes

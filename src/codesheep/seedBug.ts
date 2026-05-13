@@ -15,8 +15,6 @@ type AgentFinalJson = {
   bugReportPath?: string;
 };
 
-const BUG_REPORT_REPAIR_ATTEMPTS = 1;
-
 export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> {
   await validateSeedBugRequest(request);
   const repoTarget = await resolveRepoTarget(request.repoPath);
@@ -43,18 +41,12 @@ export async function seedBug(request: SeedBugRequest): Promise<SeedBugSuccess> 
   });
 
   const bugReportPath = path.join(repoTarget.repoPath, "BUG_REPORT.md");
-  let filesChanged = await getChangedFiles(repoTarget.repoPath);
-  const repairOutputs = await createMissingBugReportIfNeeded({
-    repoPath: repoTarget.repoPath,
-    bugReportPath,
-    requestedDifficulty: request.difficulty || "medium",
-    requestedBugCount: bugCount,
-    filesChanged,
-    agentOutput,
-  });
-  filesChanged = await getChangedFiles(repoTarget.repoPath);
+  if (!(await fileExists(bugReportPath))) {
+    throw new Error("BUG_REPORT.md was not created by the bug generation call");
+  }
 
-  const parsed = parseAgentFinalJson([agentOutput, ...repairOutputs].join("\n"));
+  const filesChanged = await getChangedFiles(repoTarget.repoPath);
+  const parsed = parseAgentFinalJson(agentOutput);
 
   return {
     status: "success",
@@ -155,92 +147,6 @@ Bug diversification requirements:
 - If diversification is disabled, you may keep bugs concentrated in one theme or bug family when that better fits the repository.
 
 Use the repository path as your working directory. Apply the minimal code edit directly in that repository, introduce exactly ${input.bugCount} bug${input.bugCount === 1 ? "" : "s"}, create BUG_REPORT.md at the repository root, read BUG_REPORT.md back to verify it exists, and finish with only the requested JSON object. Do not finish until BUG_REPORT.md exists.`;
-}
-
-async function createMissingBugReportIfNeeded(input: {
-  repoPath: string;
-  bugReportPath: string;
-  requestedDifficulty: BugDifficulty;
-  requestedBugCount: number;
-  filesChanged: string[];
-  agentOutput: string;
-}): Promise<string[]> {
-  if (await fileExists(input.bugReportPath)) {
-    return [];
-  }
-
-  const repairOutputs: string[] = [];
-  let latestFilesChanged = input.filesChanged;
-
-  for (let attempt = 1; attempt <= BUG_REPORT_REPAIR_ATTEMPTS; attempt += 1) {
-    const output = await runCursorAgent({
-      repoPath: input.repoPath,
-      prompt: buildBugReportRepairPrompt({
-        repoPath: input.repoPath,
-        difficulty: input.requestedDifficulty,
-        bugCount: input.requestedBugCount,
-        filesChanged: latestFilesChanged,
-        previousFinalJson: parseAgentFinalJson(input.agentOutput),
-      }),
-      model: config.modelName,
-    });
-    repairOutputs.push(output);
-
-    if (await fileExists(input.bugReportPath)) {
-      return repairOutputs;
-    }
-
-    latestFilesChanged = await getChangedFiles(input.repoPath);
-  }
-
-  throw new Error("BUG_REPORT.md was not created after repair attempt");
-}
-
-export function buildBugReportRepairPrompt(input: {
-  repoPath: string;
-  difficulty: BugDifficulty;
-  bugCount: number;
-  filesChanged: string[];
-  previousFinalJson?: AgentFinalJson;
-}): string {
-  return `The previous bug-seeding run changed the repository but did not create BUG_REPORT.md.
-
-Repository path:
-${input.repoPath}
-
-Your task:
-- Work in the repository path above.
-- Inspect the current git diff and changed files.
-- Create BUG_REPORT.md at the repository root.
-- Document the already seeded bug${input.bugCount === 1 ? "" : "s"}.
-- Do not modify source code unless it is absolutely required to accurately document the already seeded bug${input.bugCount === 1 ? "" : "s"}.
-- Do not modify tests, lock files, dependency manifests, generated files, or build outputs.
-- Read BUG_REPORT.md back after writing it and do not finish until it exists.
-
-Changed files reported by git:
-${input.filesChanged.length > 0 ? input.filesChanged.map((file) => `- ${file}`).join("\n") : "- No changed files were reported yet. Inspect git diff directly."}
-
-Requested metadata:
-- Difficulty: ${input.difficulty}
-- Number of bugs: ${input.bugCount}
-
-${input.previousFinalJson ? `Previous final JSON:\n\`\`\`json\n${JSON.stringify(input.previousFinalJson, null, 2)}\n\`\`\`\n` : ""}
-BUG_REPORT.md must include:
-1. Bug summary for each seeded bug
-2. Files changed
-3. Reproduction steps for each seeded bug
-4. Expected vs actual behavior for each seeded bug
-5. Difficulty: easy | medium | hard
-6. Suggested test that should catch each bug
-
-Finish with only this JSON object:
-{
-  "summary": string,
-  "difficulty": "easy" | "medium" | "hard",
-  "bugCount": number,
-  "filesChanged": string[],
-  "bugReportPath": "BUG_REPORT.md"
-}`;
 }
 
 async function fileExists(filePath: string): Promise<boolean> {
