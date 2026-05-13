@@ -41,11 +41,11 @@ export function AddCandidateModal({ onClose, onCreate }: AddCandidateModalProps)
     <Modal title="Add candidate" onClose={onClose}>
       <form className="form-grid" onSubmit={handleSubmit}>
         <label>
-          <span>Name</span>
+          <span>Name *</span>
           <input value={name} onChange={(event) => setName(event.target.value)} autoFocus required />
         </label>
         <label>
-          <span>Designation</span>
+          <span>Designation *</span>
           <input value={designation} onChange={(event) => setDesignation(event.target.value)} required />
         </label>
         <label>

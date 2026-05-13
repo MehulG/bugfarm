@@ -56,7 +56,7 @@ export function GenerateAssignmentModal({ candidate, onClose, onGenerate }: Gene
     <Modal title={`Generate assignment for ${candidate.name}`} onClose={onClose}>
       <form className="form-grid" onSubmit={handleSubmit}>
         <label>
-          <span>Difficulty</span>
+          <span>Difficulty *</span>
           <select value={difficulty} onChange={(event) => setDifficulty(event.target.value as AssignmentDifficulty)} required>
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
@@ -64,7 +64,7 @@ export function GenerateAssignmentModal({ candidate, onClose, onGenerate }: Gene
           </select>
         </label>
         <label>
-          <span>GitHub repo</span>
+          <span>GitHub repo *</span>
           <input
             value={repo}
             onChange={(event) => setRepo(event.target.value)}
